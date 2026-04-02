@@ -1,0 +1,11 @@
+[
+  {"s1": "low",    "s2": "high",   "expected": "refinement", "note": "S1 low → REFINEMENT"},
+  {"s1": "high",   "s2": "low",    "expected": "refinement", "note": "S2 low → REFINEMENT"},
+  {"s1": "low",    "s2": "medium", "expected": "refinement", "note": "S1 low → REFINEMENT"},
+  {"s1": "medium", "s2": "low",    "expected": "refinement", "note": "S2 low → REFINEMENT"},
+  {"s1": "low",    "s2": "low",    "expected": "refinement", "note": "Beide low → REFINEMENT"},
+  {"s1": "high",   "s2": "high",   "expected": "output",     "note": "Beide high → OUTPUT"},
+  {"s1": "high",   "s2": "medium", "expected": "transform",  "note": "High+Medium → TRANSFORM"},
+  {"s1": "medium", "s2": "high",   "expected": "transform",  "note": "Medium+High → TRANSFORM"},
+  {"s1": "medium", "s2": "medium", "expected": "tiebreak",   "note": "Beide medium → TIEBREAK"}
+]
