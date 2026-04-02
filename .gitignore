@@ -61,3 +61,6 @@ Cargo.lock
 *.swo
 .DS_Store
 Thumbs.db
+
+#individuelle Ausschlüsse
+phasenplanung.txt
