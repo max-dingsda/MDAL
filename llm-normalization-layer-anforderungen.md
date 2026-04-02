@@ -39,7 +39,6 @@ Wenn der Fingerabdruck bewusst weiterentwickelt wird, muss das System Versionen 
 **F8 — Mehrsprachigkeit**
 Stil-Normalisierung muss sprachsensitiv sein. Was auf Deutsch "richtig klingt" ist nicht dasselbe wie die englische Übersetzung. Ein globaler Einsatz erfordert Fingerabdrücke pro Sprache.
 
-
 **F9 — Fallback-Modell** *(niedrig priorisiert)*
 Wenn das primäre LLM nicht erreichbar ist, muss das System auf ein alternatives Modell umschalten können — transparent für den Nutzer.
 
@@ -66,6 +65,9 @@ Das System muss eine Konfigurations-Schnittstelle bereitstellen, über die der B
 
 **F17 — Trainer-Komponente (Fingerprint-Kalibrierung)**
 Das System muss eine Offline-Komponente bereitstellen, die aus historischen Konversationsdaten den Charakter-Fingerabdruck ableitet. Der Trainer analysiert bestehende Chat-Verläufe mittels LLM und extrahiert daraus Golden Samples, Stilmuster und Embedding-Vektoren. Nach der Analyse werden die Rohdaten nicht weiter benötigt — gespeichert wird ausschließlich der destillierte Fingerabdruck. Der Trainer ist kein Bestandteil der Laufzeit-Pipeline, sondern wird bei Ersteinrichtung und bei bewusster Weiterentwicklung des Fingerabdrucks (F7) eingesetzt. Das für die Analyse verwendete LLM muss nicht identisch mit dem Produktiv-LLM sein.
+
+**F18 — Betriebsmodus-Konfiguration**
+Das System muss die Möglichkeit bieten, via Konfiguration einzelne Prüfungen (Semantik, Struktur) zu deaktivieren. Diese werden im Ablauf dann nicht aufgerufen. Eine Abschaltung aller Prüfungen gleichzeitig ist nicht zulässig.
 
 ---
 
@@ -106,8 +108,6 @@ Das System muss ohne Cloud-Abhängigkeit on-premise betreibbar sein. Das darunte
 ## Offene Fragen (zur weiteren Diskussion)
 - Wie genau wird der Fingerabdruck technisch repräsentiert? *(Richtung: Kombination aus Golden Samples, Stilregeln und Embedding-Vektoren — wird durch F17 Trainer-Komponente abgeleitet, Details in Ausarbeitung)*
 
-
-
 ---
 
 ## Entschiedene Fragen
@@ -115,7 +115,6 @@ Das System muss ohne Cloud-Abhängigkeit on-premise betreibbar sein. Das darunte
 | Frage | Entscheidung | Begründung |
 |---|---|---|
 | Fingerabdruck-Kalibrierung | Offline-Trainer-Komponente (F17) analysiert historische Chats und extrahiert Fingerabdruck | Vermeidet manuellen Aufbau, nutzt echte Daten als Grundlage, Rohdaten nach Analyse nicht mehr nötig |
-|---|---|---|
 | Teilakzeptanz von Outputs | Nicht vorgesehen — binäre Entscheidung | Graubereiche machen das System unberechenbar |
 | Durchleitungsmodus bei unvollständigem Setup | Nicht vorgesehen — Fehlermeldung und Betriebsstopp | Stiller Betrieb erweckt falschen Eindruck der Funktionsfähigkeit |
 | Graceful Degradation | Nicht vorgesehen — explizite Fehlermeldung | Halbgare Ergebnisse führen den Benutzer auf den falschen Schuldigen |
@@ -126,7 +125,27 @@ Das System muss ohne Cloud-Abhängigkeit on-premise betreibbar sein. Das darunte
 | Mehrinstanzfähigkeit in v1 | Nicht vorgesehen — mehrere unabhängige Installationen mit je eigenem Fingerabdruck sind jedoch explizit erlaubt | Komplexität in v1 vermeiden ohne zukünftige Nutzung auszuschließen |
 | Lizenzmodell Community-Bibliothek | Open Source — frei nutzbar und frei modifizierbar | Qualität durch Community-Beiträge, keine Einschränkung der Nutzung |
 | Zielgruppe v1 | Organisationen die LLM einsetzen und den Layer on-prem betreiben — unabhängig ob das LLM lokal oder kommerziell über API läuft | Consumer zahlen nicht, klassisches Enterprise hat zu lange Verkaufszyklen |
+| Betriebsmodus | Einzelne Prüfungen deaktivierbar (F18); Abschaltung aller Prüfungen gleichzeitig nicht zulässig | Performance + Flexibilität ohne stillen Durchleitungsmodus |
 
 ---
 
-*Stand: v0.4 — F17 ergänzt (Trainer-Komponente), F16 ergänzt (Admin/Config), Sortierung korrigiert, Lösungsraum in Arbeit*
+*Stand: v0.5 — F18 ergänzt (Betriebsmodus-Konfiguration)*
+
+**F19 — Integrationsmodell**
+MDAL ist eine Middleware — der Endnutzer interagiert nicht direkt mit MDAL, sondern mit einer vorgelagerten Oberfläche oder Anwendung. MDAL sitzt unsichtbar zwischen dieser Anwendung und dem LLM. Das System muss mindestens folgende Integrationsformen unterstützen:
+
+- **API-Proxy:** MDAL stellt einen OpenAI-kompatiblen Endpunkt bereit. Bestehende Anwendungen können MDAL durch einfaches Ändern der API-URL einbinden — ohne Anpassung am Client-Code.
+- **Library/SDK:** MDAL kann direkt als Bibliothek in eine Anwendung eingebunden werden, ohne separaten Service.
+
+Die konkrete Auswahl und Priorisierung der Integrationsformen ist Lösungsraum. Der API-Proxy-Ansatz wird als primäre Integrationsform für v1 empfohlen, da er minimale Integrationsarbeit beim Betreiber erfordert.
+
+**F20 — Plugin-Registry-Architektur**
+Plugins werden als Ordnerstruktur im Dateisystem abgelegt. Jedes Plugin liegt in einem eigenen Unterordner und besteht aus:
+
+- `manifest.json` — Pflichtdatei: Plugin-ID, Anzeigename, Version, beschreibender Infotext, Angabe welche Dateien vorhanden sind
+- `schema.xsd` — optional: formales XML-Schema zur Strukturvalidierung (kann ein offizieller Standard oder ein proprietäres Unternehmensschema sein)
+- `elements.json` — optional: Liste erlaubter Elemente, ermöglicht versionsabhängige Validierung (z.B. ArchiMate 2.x vs. 3.x)
+
+Die Validierung läuft zweistufig: erst Schema-Validierung (sofern schema.xsd vorhanden), dann Elementlisten-Validierung (sofern elements.json vorhanden). Mindestens eine der beiden Dateien muss vorhanden sein.
+
+Das Format unterscheidet nicht zwischen Community-Plugins und proprietären Unternehmens-Plugins — der Unterschied liegt ausschließlich im Ablageort (Community-Bibliothek vs. private Erweiterung, siehe NF1/NF2).
