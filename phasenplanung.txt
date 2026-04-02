@@ -1,0 +1,69 @@
+Phase 1 — Foundation (Basis & Config)
+Ziel: Das System startet, liest Config, lehnt unvollständiges Setup ab.
+
+pyproject.toml mit Dependencies (FastAPI, httpx, pydantic, pyyaml, sentence-transformers o.ä.)
+config.py: YAML-Config laden, Vollständigkeit prüfen, bei unvollständigem Setup Fehler + Betriebsstopp (F11, NF8)
+llm/adapter.py: Einheitliche Schnittstelle zu jedem OpenAI-kompatiblen Endpunkt — Ollama-URL konfigurierbar, kein Anbieter hard-coded (NF4)
+audit.py: Stub — write-only nach Datei (erweiterbar auf DB später, NF5)
+Phase 2 — Fingerprint & Trainer
+Ziel: Fingerprint aus echten Chat-Verläufen ableiten, versioniert speichern.
+
+fingerprint/models.py: Datenstruktur für alle drei Schichten
+Schicht 1: Stilregeln (Formalität, Satzlänge, Vokabular-Listen)
+Schicht 2: Embedding-Vektor(en) des Zielstils
+Schicht 3: Golden Samples (Referenz-Interaktionen)
+Sprach-Tag (F8)
+fingerprint/store.py: JSON-basierter Store mit Versionsnummer, Rollback (F7)
+trainer/trainer.py (F17):
+Chat-Verläufe einlesen (JSON/Text)
+Via LLM Stilregeln extrahieren → Schicht 1
+Embedding-Vektoren berechnen → Schicht 2
+Repräsentative Samples selektieren → Schicht 3
+Fingerprint speichern, Rohdaten verwerfen (NF3)
+Phase 3 — Verification Engine
+Ziel: Jeden Output zuverlässig prüfen und bewerten.
+
+Strukturprüfung (F2):
+
+verification/structure.py: Format-Erkennung (JSON, XML, Prosa)
+plugins/registry.py: Plugin-Ordner einlesen, manifest.json parsen
+Zweistufige Validierung: XSD (sofern vorhanden) → elements.json (sofern vorhanden)
+Ergebnis binär mit konkretem Fehlerbericht
+Semantikprüfung (F1):
+
+semantic/layer1.py: Regelabgleich gegen Fingerprint Schicht 1 — deterministisch, schnell
+semantic/layer2.py: Embedding des aktuellen Outputs berechnen, Cosine-Similarity gegen Fingerprint Schicht 2
+semantic/layer3.py: LLM-as-Judge — Prompt mit Golden Samples aus Schicht 3, binäre Entscheidung
+semantic/scorer.py: Entscheidungstabelle aus dem Architekturdokument (low/medium/high → Output / Transformer / Refinement / S3)
+Betriebsmodus (F18): Welche Prüfungen aktiv sind, steuert die Config — deaktivierte Schichten werden nicht aufgerufen, nie alle gleichzeitig abschaltbar.
+
+Phase 4 — Pipeline-Orchestrierung
+Ziel: Alle Komponenten zur vollständigen Laufzeit-Pipeline verbinden.
+
+verification/engine.py: Parallele Ausführung aktiver Prüfungen (Struktur + Semantik), Scorer-Ergebnis auswerten
+transformer.py (F10): Ton-Anpassung ohne LLM — regelbasiert (Formalitätslevel, Satzumstellung), Struktur/Reihenfolge/Vollständigkeit unangetastet
+retry.py (F5): Retry-Schleife max 3 LLM-Aufrufe; Transformer zählt nicht; bei Abbruch: Output zurückhalten + Admin benachrichtigen
+session.py (F14): Ephemerer Kontext pro Session — Fingerprint-Konsistenz über mehrere Turns, kein Persist nach Session-Ende
+notifier.py: Admin-Benachrichtigung bei Eskalation und Fähigkeits-Asymmetrie (F5, F13) — zunächst Log + konfigurierbare Webhook-URL
+Status-Meldungen an Client (F15): "Anfrage wird verarbeitet", "Ergebnis wird geprüft", "Ergebnis wird aufbereitet"
+Phase 5 — API Proxy
+Ziel: MDAL als Drop-in über URL-Tausch integrierbar.
+
+proxy/server.py: FastAPI, /v1/chat/completions Endpunkt
+Streaming-Verhalten: Stream vom LLM puffern bis vollständig, dann prüfen (F6 — kein Eingriff während Streaming)
+Status-Meldungen während Retry als Server-Sent Events oder im Response-Stream
+Konfigurierbare Upstream-URL (→ LLM Adapter)
+Phase 6 — Validierung & Kalibrierung
+Ziel: Die vier Kernfragen beantworten.
+
+Fingerprint mit echten Ollama-Outputs aufbauen (Trainer durchlaufen)
+Pipeline mit verschiedenen Modellen testen (Modellwechsel simulieren)
+Schwellwert-Defaults beobachten und justieren
+Dokumentieren: Was funktioniert, was nicht, wo braucht es Anpassung
+Abhängigkeiten zwischen Phasen
+
+Phase 1 → Phase 2 (Trainer braucht LLM Adapter)
+Phase 2 → Phase 3 (Semantic Layer braucht Fingerprint)
+Phase 3 → Phase 4 (Engine braucht alle Checker)
+Phase 4 → Phase 5 (Proxy braucht vollständige Pipeline)
+Phase 2+3+4 → Phase 6 (Validierung braucht alles)
