@@ -1,0 +1,39 @@
+# MDAL — Beispielkonfiguration
+# Kopiere diese Datei nach mdal.yaml und passe sie an.
+# Produktive Configs mit API-Keys nie committen — nutze mdal.local.yaml (in .gitignore).
+
+llm:
+  url: "http://localhost:11434"   # Ollama default; oder OpenAI-kompatibler Endpunkt
+  model: "llama3.2"
+  timeout: 60
+  # api_key: "sk-..."             # Optional — für kommerzielle APIs
+
+embedding:
+  url: "http://localhost:11434"
+  model: "nomic-embed-text"
+  timeout: 30
+
+fingerprint_path: "./fingerprints/default"
+
+plugin_registry_path: "./plugins"
+
+audit:
+  target: "file"                  # "file" | "postgresql" | "mysql" | "mssql"
+  path: "./audit/mdal.log"
+  # connection_string: "postgresql://user:pass@host/db"   # für DB-Targets
+
+checks:
+  semantic: true
+  structure: true
+  # Mindestens eine Prüfung muss aktiv sein (F18).
+  # Beide auf false gleichzeitig ist nicht erlaubt.
+
+notifier:
+  log_path: "./logs/escalations.log"
+  # webhook_url: "https://example.com/hooks/mdal-escalation"
+
+# Fallback-Modell (F9) — optional
+# fallback_llm:
+#   url: "http://localhost:11434"
+#   model: "gemma2"
+#   timeout: 60

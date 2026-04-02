@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+.env
+
+# Pytest / Coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Type checkers
+.mypy_cache/
+.ruff_cache/
+
+# Config mit Secrets (lokale Overrides, nie committen)
+mdal.local.yaml
+*.local.yaml
+.env
+.env.*
+
+# Fingerprint-Rohdaten (Chat-Verläufe für Trainer — können groß und sensitiv sein)
+trainer_input/
+raw_conversations/
+
+# Audit-Log-Outputs
+audit/
+*.log
+
+# Model-Dateien (Ollama / HuggingFace)
+*.bin
+*.safetensors
+*.gguf
+*.pt
+*.ckpt
+models/
+
+# Plugin-Daten die nicht commited werden sollen
+plugins/private/
+
+# Rust (für spätere Kern-Extraktion via PyO3)
+target/
+Cargo.lock
+*.rlib
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
