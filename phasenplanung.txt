@@ -57,17 +57,52 @@ Status-Meldungen während Retry als Server-Sent Events oder im Response-Stream
 Konfigurierbare Upstream-URL (→ LLM Adapter)
 
 
+Phase 5.1 — Pre-Go-Live Fixes (Code-Review-Findings)
+Ziel: Kritische Stabilitätsprobleme beheben bevor Phase 6 (Trainer-Lauf mit echtem LLM) gestartet wird.
+
+[CR-Finding #2] Thread-Sicherheit im FingerprintStore (fingerprint/store.py):
+  filelock-basiertes Read/Write-Locking ergänzen
+  Schreiboperationen (save, rollback, _write_pointer) → exklusiver Lock
+  Leseoperation (load_current) → Shared Lock
+  Begründung: API-Proxy nimmt ab Phase 6 echte konkurrierende Requests entgegen;
+  TOCTOU-Race zwischen _read_pointer() und load_version() ist strukturell vorhanden
+
+[CR-Finding #4] Resilientes JSON-Parsing im Trainer — Layer 1 (trainer/trainer.py):
+  JSON-Mode des LLM für _STYLE_EXTRACTION_PROMPT aktivieren (sofern Endpunkt unterstützt)
+  Alternativ: Auto-Retry mit explizitem Korrektur-Prompt wenn json.loads() fehlschlägt
+  Begründung: Layer 1 hat keinen Fallback — ein Parsing-Fehler bricht den gesamten
+  Trainer-Lauf ab; Layer 3 ist bereits ausreichend resilient (erster-N-Samples-Fallback)
+
+
 Phase 6 — Validierung & Kalibrierung
-Ziel: Die vier Kernfragen beantworten.
+Ziel: Die vier Kernfragen beantworten und Betriebsbereitschaft sicherstellen.
 
 Fingerprint mit echten Ollama-Outputs aufbauen (Trainer durchlaufen)
 Pipeline mit verschiedenen Modellen testen (Modellwechsel simulieren)
 Schwellwert-Defaults beobachten und justieren
 Dokumentieren: Was funktioniert, was nicht, wo braucht es Anpassung
+
+[CR-Finding #6] Startup-Konnektivitätsprüfung (proxy/startup.py, config.py):
+  connectivity_check(config) nach build_pipeline() ergänzen
+  Prüft: primäres LLM (Test-Ping), Embedding-Endpunkt, DB-Verbindung bei nicht-file-Audit-Targets
+  Begründung: validate_runtime_paths() prüft nur lokale Pfade; stille Fehlkonfiguration
+  (falsche LLM-URL, ungültiger Connection-String) soll beim Start sichtbar werden, nicht erst
+  beim ersten echten Request als 503
+
+[CR-Finding #5] Chain-of-Thought im LLM-as-Judge (verification/semantic/layer3.py):
+  _JUDGE_PROMPT anpassen: LLM gibt 1-2 Sätze Begründung aus, dann PASST / PASST NICHT
+  _parse_judgment() anpassen: Urteil am Ende der Antwort extrahieren statt am Anfang
+  Begründung: Layer 3 wird nur im Tiebreak ausgeführt — Latenz-Impact ist akzeptabel;
+  CoT verbessert Urteilsqualität messbar; Kalibrierungsphase bietet Gelegenheit zum
+  direkten Vorher/Nachher-Vergleich
+
+
 Abhängigkeiten zwischen Phasen
 
 Phase 1 → Phase 2 (Trainer braucht LLM Adapter)
 Phase 2 → Phase 3 (Semantic Layer braucht Fingerprint)
 Phase 3 → Phase 4 (Engine braucht alle Checker)
 Phase 4 → Phase 5 (Proxy braucht vollständige Pipeline)
+Phase 5 → Phase 5.1 (Fixes brauchen lauffähigen Proxy als Basis)
+Phase 5.1 → Phase 6 (Validierung braucht stabilen Trainer und thread-sicheren Store)
 Phase 2+3+4 → Phase 6 (Validierung braucht alles)
