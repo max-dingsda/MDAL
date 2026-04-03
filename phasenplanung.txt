@@ -46,6 +46,8 @@ retry.py (F5): Retry-Schleife max 3 LLM-Aufrufe; Transformer zählt nicht; bei A
 session.py (F14): Ephemerer Kontext pro Session — Fingerprint-Konsistenz über mehrere Turns, kein Persist nach Session-Ende
 notifier.py: Admin-Benachrichtigung bei Eskalation und Fähigkeits-Asymmetrie (F5, F13) — zunächst Log + konfigurierbare Webhook-URL
 Status-Meldungen an Client (F15): "Anfrage wird verarbeitet", "Ergebnis wird geprüft", "Ergebnis wird aufbereitet"
+
+
 Phase 5 — API Proxy
 Ziel: MDAL als Drop-in über URL-Tausch integrierbar.
 
@@ -53,6 +55,8 @@ proxy/server.py: FastAPI, /v1/chat/completions Endpunkt
 Streaming-Verhalten: Stream vom LLM puffern bis vollständig, dann prüfen (F6 — kein Eingriff während Streaming)
 Status-Meldungen während Retry als Server-Sent Events oder im Response-Stream
 Konfigurierbare Upstream-URL (→ LLM Adapter)
+
+
 Phase 6 — Validierung & Kalibrierung
 Ziel: Die vier Kernfragen beantworten.
 

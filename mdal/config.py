@@ -75,7 +75,7 @@ class MDALConfig(BaseModel):
     notifier:              NotifierConfig    = Field(default_factory=NotifierConfig)
     language:              str               = "de"    # Standard-Sprache für Fingerprint-Lookup
     fallback_llm:          LLMConfig | None  = None   # F9
-    max_retries:           int               = 3       # F5, konfigurierbar aber default 3
+    max_retries:           int               = 2       # F5: max 3 Versuche gesamt (1 initial + 2 Refinements)
 
     @model_validator(mode="after")
     def _validate_completeness(self) -> MDALConfig:
