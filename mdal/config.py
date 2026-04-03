@@ -73,6 +73,7 @@ class MDALConfig(BaseModel):
     audit:                 AuditConfig
     checks:                ChecksConfig      = Field(default_factory=ChecksConfig)
     notifier:              NotifierConfig    = Field(default_factory=NotifierConfig)
+    language:              str               = "de"    # Standard-Sprache für Fingerprint-Lookup
     fallback_llm:          LLMConfig | None  = None   # F9
     max_retries:           int               = 3       # F5, konfigurierbar aber default 3
 
