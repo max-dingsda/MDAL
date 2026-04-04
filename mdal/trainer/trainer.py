@@ -58,15 +58,17 @@ class Trainer:
 
     def __init__(
         self,
-        llm_adapter:       LLMAdapterProtocol,
-        embedding_adapter: LLMAdapterProtocol,
-        store:             FingerprintStore,
-        golden_sample_count: int = DEFAULT_GOLDEN_SAMPLE_COUNT,
+        llm_adapter:          LLMAdapterProtocol,
+        embedding_adapter:    LLMAdapterProtocol,
+        store:                FingerprintStore,
+        golden_sample_count:  int = DEFAULT_GOLDEN_SAMPLE_COUNT,
+        embedding_model_name: str = "unknown",
     ) -> None:
-        self._llm       = llm_adapter
-        self._embed     = embedding_adapter
-        self._store     = store
-        self._n_samples = golden_sample_count
+        self._llm             = llm_adapter
+        self._embed           = embedding_adapter
+        self._store           = store
+        self._n_samples       = golden_sample_count
+        self._embed_model     = embedding_model_name
 
     # ------------------------------------------------------------------
     # Haupt-Einstiegspunkt
@@ -163,8 +165,10 @@ class Trainer:
             )
 
         # Versuch 3: Korrektur-Prompt
+        # Die vorige LLM-Antwort wird gekürzt — sie kann sehr lang sein und würde
+        # zusammen mit dem Original-Prompt das Kontextfenster des LLM sprengen.
         correction_messages = messages + [
-            {"role": "assistant", "content": raw},
+            {"role": "assistant", "content": raw[:800]},
             {"role": "user", "content": _JSON_CORRECTION_PROMPT},
         ]
         raw = self._llm.complete(correction_messages)
@@ -180,8 +184,14 @@ class Trainer:
     # Layer 2 — Embedding-Profil
     # ------------------------------------------------------------------
 
+    # Maximale Zeichenlänge pro Text vor dem Embedding-Aufruf.
+    # nomic-embed-text (BERT-Tokenizer) hat 2048 Token Kontextfenster.
+    # Für deutschen Text ~2 Zeichen/Token → sicheres Limit: 3000 Zeichen.
+    _EMBED_MAX_CHARS: int = 3000
+
     def _compute_embedding_profile(self, responses: list[str]) -> EmbeddingProfile:
-        embeddings = [self._embed.embed(r) for r in responses]
+        truncated = [r[:self._EMBED_MAX_CHARS] for r in responses]
+        embeddings = [self._embed.embed(r) for r in truncated]
 
         if not embeddings:
             raise TrainerError("Keine Embeddings berechnet.")
@@ -194,7 +204,7 @@ class Trainer:
 
         return EmbeddingProfile(
             centroid=centroid,
-            model_name="unknown",   # wird vom Aufrufer überschrieben wenn bekannt
+            model_name=self._embed_model,
             sample_count=len(embeddings),
             dimensions=dimensions,
         )
@@ -443,7 +453,12 @@ def main() -> None:
         print("Fehler: Keine Konversationen geladen.", file=sys.stderr)
         sys.exit(1)
 
-    trainer = Trainer(llm_adapter=llm, embedding_adapter=embed, store=store)
+    trainer = Trainer(
+        llm_adapter=llm,
+        embedding_adapter=embed,
+        store=store,
+        embedding_model_name=config.embedding.model,
+    )
     version = trainer.run(conversations=conversations, language=args.language)
     print(f"Fingerprint v{version} für Sprache '{args.language}' gespeichert.")
 

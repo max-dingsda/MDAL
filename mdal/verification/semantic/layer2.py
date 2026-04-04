@@ -24,8 +24,13 @@ from mdal.interfaces.llm import LLMAdapterProtocol
 from mdal.interfaces.scoring import CheckResult, ScoreLevel
 from mdal.session import SessionContext
 
-# Schwellwerte für die Score-Einstufung — Ausgangspunkt für PoC-Kalibrierung
-THRESHOLD_HIGH: float = 0.85
+# Schwellwerte für die Score-Einstufung
+# Phase 6 Kalibrierung (2026-04-04, Pilot-Fingerprint 30 Konversationen):
+#   - 0.85 war zu hoch: stilkonformer ChatGPT-Text erreichte nur 0.8416 → nie OUTPUT
+#   - 0.82 empirisch passend: guter Stil → HIGH, leichte Abweichungen → MEDIUM
+#   - 0.65 passt: informelle Texte landen in MEDIUM (→ TRANSFORM), nicht LOW (→ REFINEMENT)
+# Nach Full-Run (454 Konversationen) erneut prüfen und ggf. nachjustieren.
+THRESHOLD_HIGH: float = 0.80  # was 0.85→0.82→0.80, kalibriert 2026-04-04 gegen v2-Fingerprint (454 Konversationen)
 THRESHOLD_LOW:  float = 0.65
 
 

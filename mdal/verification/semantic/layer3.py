@@ -30,12 +30,13 @@ Referenzbeispiele (repräsentieren den gewünschten Stil):
 Zu beurteilender Text:
 {output}
 
-Antworte ausschließlich mit einem der folgenden Wörter — kein Erklärtext:
-  passt
-  passt nicht
-
 Kriterien: Tonalität, Formalitätsniveau, Formulierungsstil, sprachliches Verhalten.
 Inhalt und Thema des Textes sind irrelevant — nur der Stil zählt.
+
+Begründe dein Urteil in 1-2 Sätzen. Schreibe dann als letzte Zeile \
+ausschließlich eines der folgenden Wörter:
+  PASST
+  PASST NICHT
 """
 
 
@@ -77,22 +78,40 @@ class Layer3LLMJudge:
         raw = self._llm.complete([{"role": "user", "content": prompt}])
         passed = _parse_judgment(raw)
 
+        # Begründung aus der CoT-Antwort extrahieren (alle Zeilen außer dem Urteil)
+        lines = [l.strip() for l in raw.strip().splitlines() if l.strip()]
+        reasoning = " ".join(lines[:-1]) if len(lines) > 1 else ""
+
         return CheckResult(
             level=ScoreLevel.HIGH if passed else ScoreLevel.LOW,
-            details=f"LLM-Judge: {'passt' if passed else 'passt nicht'} "
-                    f"(Antwort: {raw.strip()[:50]!r})",
+            details=f"LLM-Judge: {'PASST' if passed else 'PASST NICHT'}"
+                    + (f" — {reasoning[:120]}" if reasoning else ""),
         )
 
 
 def _parse_judgment(response: str) -> bool:
     """
-    Parst die binäre LLM-Judge-Antwort.
-    Robust gegenüber Leerzeichen, Groß-/Kleinschreibung und kurzen Erläuterungen.
+    Parst die LLM-Judge-Antwort mit CoT-Format (CR-Finding #5).
+
+    Das Urteil steht am Ende der Antwort (letzte nicht-leere Zeile).
+    Robust gegenüber Leerzeichen und Groß-/Kleinschreibung.
+    Fallback: konservativ als nicht-passend werten wenn unklar.
     """
-    text = response.strip().lower()
-    if text.startswith("passt nicht") or "passt nicht" in text[:30]:
+    lines = [line.strip() for line in response.strip().splitlines() if line.strip()]
+    if not lines:
         return False
-    if text.startswith("passt") or text == "passt":
+
+    last = lines[-1].upper()
+    if last == "PASST NICHT" or last.startswith("PASST NICHT"):
+        return False
+    if last == "PASST" or last.startswith("PASST"):
         return True
-    # Fallback: wenn unklar → konservativ als nicht-passend werten
+
+    # Fallback: gesamten Text nach "PASST NICHT" / "PASST" durchsuchen
+    text = response.upper()
+    if "PASST NICHT" in text:
+        return False
+    if "PASST" in text:
+        return True
+
     return False

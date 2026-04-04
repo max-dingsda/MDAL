@@ -27,7 +27,7 @@ import uvicorn
 
 from mdal.config import ConfigError, load_config, validate_runtime_paths
 from mdal.proxy.app import app
-from mdal.proxy.startup import build_audit_writer, build_pipeline
+from mdal.proxy.startup import build_audit_writer, build_pipeline, connectivity_check
 
 
 def main() -> None:
@@ -55,6 +55,13 @@ def main() -> None:
         audit    = build_audit_writer(config)
     except Exception as exc:
         logger.critical("Initialisierung fehlgeschlagen: %s", exc)
+        sys.exit(1)
+
+    logger.info("Prüfe Konnektivität zu externen Endpunkten …")
+    try:
+        connectivity_check(config)
+    except ConfigError as exc:
+        logger.critical("Konnektivitätsprüfung fehlgeschlagen — Server startet nicht (F11): %s", exc)
         sys.exit(1)
 
     # Abhängigkeiten in App-State ablegen (für Route-Handler verfügbar)

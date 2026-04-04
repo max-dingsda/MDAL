@@ -25,18 +25,28 @@ from mdal.fingerprint.models import Fingerprint
 # Nur eindeutige Füllwort-Verwendungen — Wörter mit zentraler semantischer
 # Bedeutung werden NICHT automatisch ersetzt.
 _INFORMAL_SUBSTITUTIONS: dict[str, str] = {
-    "halt":      "",           # "Das ist halt so." → "Das ist so."
-    "irgendwie": "",           # "Das funktioniert irgendwie nicht." → "Das funktioniert nicht."
+    # Eindeutige Füllwörter ohne eigenständige Bedeutung → entfernen
+    "halt":       "",          # "Das ist halt so." → "Das ist so."
+    "irgendwie":  "",          # "Das funktioniert irgendwie nicht." → "Das funktioniert nicht."
     "eigentlich": "",          # "Das sollte eigentlich klappen." → "Das sollte klappen."
-    "quasi":     "im Wesentlichen",
-    "sozusagen": "gewissermaßen",
-    "okay":      "in Ordnung",
-    "ok":        "in Ordnung",
-    "super":     "sehr gut",
-    "toll":      "gut",
-    "mega":      "sehr",
-    "echt":      "tatsächlich",
-    "krass":     "deutlich",
+    "lol":        "",
+    "haha":       "",
+    "hey":        "",          # Als Anrede am Satzanfang — nur Füllwert
+    # Umgangssprache → Standardsprache
+    "quasi":      "im Wesentlichen",
+    "sozusagen":  "gewissermaßen",
+    "okay":       "in Ordnung",
+    "ok":         "in Ordnung",
+    "super":      "sehr gut",
+    "toll":       "gut",
+    "mega":       "sehr",
+    "echt":       "tatsächlich",
+    "krass":      "deutlich",
+    "cool":       "gut",
+    "nice":       "gut",
+    "jo":         "ja",
+    "nö":         "nein",
+    "grad":       "gerade",
 }
 
 # Formalitätsstufe ab der informelle Füllwörter automatisch entfernt werden

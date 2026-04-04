@@ -34,6 +34,8 @@ mdal.local.yaml
 # Fingerprint-Rohdaten (Chat-Verläufe für Trainer — können groß und sensitiv sein)
 trainer_input/
 raw_conversations/
+training_data/
+chatgpt_export/
 
 # Audit-Log-Outputs
 audit/
@@ -65,3 +67,5 @@ Thumbs.db
 
 #individuelle Ausschlüsse
 Code-Review-Phase5.md
+chatgpt_export/
+CLAUDE.md

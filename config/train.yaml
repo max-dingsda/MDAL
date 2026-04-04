@@ -1,0 +1,27 @@
+# MDAL Trainer-Konfiguration — Phase 6 Kalibrierungslauf
+# LLM für Stilregel-Extraktion und Golden-Sample-Selektion
+llm:
+  url: "http://localhost:11434"
+  model: "llama3.1:8b"
+  timeout: 120
+
+# Embedding-Modell für Layer-2-Vektoren
+embedding:
+  url: "http://localhost:11434"
+  model: "nomic-embed-text"
+  timeout: 60
+
+fingerprint_path: "./fingerprints/default"
+
+plugin_registry_path: "./plugins"
+
+audit:
+  target: "file"
+  path: "./audit/trainer.log"
+
+checks:
+  semantic: true
+  structure: true
+
+notifier:
+  log_path: "./logs/escalations.log"
