@@ -52,12 +52,11 @@ Typische fachliche Inhalte:
 
 ### Session Context
 
-Der Session Context hält flüchtige Informationen vor, die innerhalb einer laufenden Interaktion zur Konsistenz beitragen. Fachlich dient er dazu, kurzfristige Stabilität über mehrere Turns hinweg zu sichern, ohne unnötige Langzeitpersistenz aufzubauen.
+Der Session Context hält flüchtige Informationen vor, die innerhalb des Retry-Loops eines einzelnen Requests zur Konsistenz beitragen. Er lebt ausschließlich für die Dauer dieses Retry-Loops und wird danach verworfen. MDAL ist konversationslos — die vorgelagerte Anwendung verwaltet den Konversationskontext selbst.
 
 Das ist insbesondere relevant für:
-- konsistente Tonalität innerhalb einer Session
-- Beibehaltung von Kontextbezügen
-- Reduktion sprunghafter Antwortwechsel innerhalb desselben Gesprächs
+- konsistente Fingerprint-Anwendung über Initial-Response und Refinements innerhalb desselben Requests
+- Nachvollziehbarkeit der Prüfentscheidungen im Retry-Verlauf
 
 ### Retry und Escalation
 

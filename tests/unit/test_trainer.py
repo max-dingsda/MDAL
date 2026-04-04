@@ -142,9 +142,11 @@ class TestLayer1Extraction:
         assert any(r.name == "keine-emoticons" for r in fp.layer1.custom_rules)
 
     def test_malformed_llm_response_raises_trainer_error(self, tmp_path):
+        # Layer-1-Extraktion versucht es drei Mal (JSON-Mode, Standard, Korrektur-Prompt).
+        # Erst wenn alle drei Versuche scheitern wird TrainerError geworfen.
         trainer, _, _ = make_trainer(
             tmp_path,
-            ["Das ist kein JSON", SAMPLE_SELECTION_RESPONSE],
+            ["Das ist kein JSON", "Immer noch kein JSON", "Auch der dritte Versuch nicht"],
         )
         with pytest.raises(TrainerError, match="Layer-1-Extraktion"):
             trainer.run(SAMPLE_CONVERSATIONS, language="de")

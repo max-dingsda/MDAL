@@ -22,6 +22,8 @@ import json
 import logging
 from pathlib import Path
 
+from mdal.llm.adapter import LLMResponseError
+
 from mdal.fingerprint.models import (
     Conversation,
     EmbeddingProfile,
@@ -120,29 +122,58 @@ class Trainer:
     def _extract_style_rules(
         self, responses: list[str], language: str
     ) -> StyleRules:
-        sample_text = self._build_response_sample(responses, max_chars=6000)
+        """
+        Extrahiert Stilregeln via LLM mit bis zu drei Versuchen (CR-Finding #4):
 
+        1. JSON-Mode des LLM aktivieren (sofern vom Endpunkt unterstützt) — liefert
+           direkt valides JSON ohne Markdown oder Erklärtext.
+        2. Standard-Completion ohne JSON-Mode — funktioniert mit allen Endpunkten.
+        3. Korrektur-Prompt im selben Message-Thread — explizite Aufforderung zur
+           Reparatur der vorigen Antwort.
+
+        Erst nach Scheitern aller drei Versuche wird TrainerError geworfen.
+        """
+        sample_text = self._build_response_sample(responses, max_chars=6000)
         prompt = _STYLE_EXTRACTION_PROMPT.format(
             language=language,
             responses=sample_text,
         )
+        messages = [{"role": "user", "content": prompt}]
 
-        raw = self._llm.complete([{"role": "user", "content": prompt}])
-
+        # Versuch 1: JSON-Mode (nicht alle Endpunkte unterstützen das)
         try:
-            data = _extract_json(raw)
-            return StyleRules(
-                formality_level=int(data.get("formality_level", 3)),
-                avg_sentence_length_max=data.get("avg_sentence_length_max"),
-                preferred_vocabulary=data.get("preferred_vocabulary", []),
-                avoided_vocabulary=data.get("avoided_vocabulary", []),
-                custom_rules=[
-                    StyleRule(**r) for r in data.get("custom_rules", [])
-                ],
+            raw = self._llm.complete(
+                messages,
+                response_format={"type": "json_object"},
             )
-        except Exception as exc:
+            return _parse_style_rules(raw)
+        except (LLMResponseError, json.JSONDecodeError, ValueError, KeyError):
+            logger.debug(
+                "Layer-1: JSON-Mode nicht unterstützt oder Parsing fehlgeschlagen,"
+                " verwende Standard-Completion."
+            )
+
+        # Versuch 2: Standard-Completion
+        raw = self._llm.complete(messages)
+        try:
+            return _parse_style_rules(raw)
+        except (json.JSONDecodeError, ValueError, KeyError):
+            logger.warning(
+                "Layer-1: Standard-Completion nicht parsebar, sende Korrektur-Prompt."
+            )
+
+        # Versuch 3: Korrektur-Prompt
+        correction_messages = messages + [
+            {"role": "assistant", "content": raw},
+            {"role": "user", "content": _JSON_CORRECTION_PROMPT},
+        ]
+        raw = self._llm.complete(correction_messages)
+        try:
+            return _parse_style_rules(raw)
+        except (json.JSONDecodeError, ValueError, KeyError) as exc:
             raise TrainerError(
-                f"Layer-1-Extraktion fehlgeschlagen. LLM-Antwort war:\n{raw[:500]}"
+                f"Layer-1-Extraktion nach 3 Versuchen fehlgeschlagen. "
+                f"Letzte LLM-Antwort war:\n{raw[:500]}"
             ) from exc
 
     # ------------------------------------------------------------------
@@ -255,8 +286,25 @@ class Trainer:
 
 
 # ---------------------------------------------------------------------------
-# Hilfsfunktion: JSON aus LLM-Antwort extrahieren
+# Hilfsfunktionen
 # ---------------------------------------------------------------------------
+
+def _parse_style_rules(raw: str) -> StyleRules:
+    """
+    Parst die LLM-Antwort der Layer-1-Extraktion zu einem StyleRules-Objekt.
+    Wirft json.JSONDecodeError / ValueError / KeyError bei ungültigem Format.
+    """
+    data = _extract_json(raw)
+    return StyleRules(
+        formality_level=int(data.get("formality_level", 3)),
+        avg_sentence_length_max=data.get("avg_sentence_length_max"),
+        preferred_vocabulary=data.get("preferred_vocabulary", []),
+        avoided_vocabulary=data.get("avoided_vocabulary", []),
+        custom_rules=[
+            StyleRule(**r) for r in data.get("custom_rules", [])
+        ],
+    )
+
 
 def _extract_json(text: str) -> dict:
     """
@@ -308,6 +356,12 @@ custom_rules: Weitere stilistische Beobachtungen (Satzbau, Struktur, Eigenheiten
 
 Assistent-Antworten:
 {responses}
+"""
+
+_JSON_CORRECTION_PROMPT = """\
+Deine vorige Antwort war kein valides JSON-Objekt. Bitte antworte diesmal
+ausschließlich mit dem JSON-Objekt — ohne Erklärtext, ohne Markdown-Fences.
+Verwende exakt das Schema aus der ursprünglichen Aufgabe.
 """
 
 _SAMPLE_SELECTION_PROMPT = """\

@@ -13,13 +13,22 @@ Verzeichnisstruktur pro Sprache:
         v1.json
 
 Das Format ist bewusst einfach: eine JSON-Datei pro Version, ein Pointer auf
-die aktive Version. Kein Lock-Mechanismus — der Store ist nicht für
-gleichzeitige Schreibzugriffe ausgelegt (v1 single-instance, NF-Scope).
+die aktive Version.
+
+Locking-Strategie (CR-Finding #2):
+  Schreiboperationen (save, rollback) halten einen exklusiven FileLock auf
+  einer sprachspezifischen Lock-Datei ({base}/.{language}.lock).
+  load_current hält denselben Lock beim Lesen, um das TOCTOU-Race zwischen
+  _read_pointer() und load_version() zu schließen.
+  Einfache Lesezugriffe auf eine feste Version (load_version, list_versions)
+  benötigen keinen Lock — sie greifen auf unveränderliche Dateien zu.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+
+from filelock import FileLock
 
 from mdal.fingerprint.models import Fingerprint
 
@@ -41,10 +50,14 @@ class FingerprintStore:
     Die aktive Version zeigt eine Pointer-Datei (`current`).
 
     Rollback (F7): Pointer auf beliebige frühere Version setzen.
+
+    Thread- und Prozess-Sicherheit wird über sprachspezifische FileLocks
+    sichergestellt. Parallele HTTP-Requests lesen konsistente Pointer-Zustände.
     """
 
     def __init__(self, base_path: str | Path) -> None:
         self._base = Path(base_path)
+        self._base.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
     # Schreiben
@@ -62,14 +75,15 @@ class FingerprintStore:
         lang_dir = self._lang_dir(fingerprint.language)
         lang_dir.mkdir(parents=True, exist_ok=True)
 
-        next_version = self._next_version(fingerprint.language)
-        versioned = fingerprint.model_copy(update={"version": next_version})
+        with FileLock(self._lock_path(fingerprint.language)):
+            next_version = self._next_version(fingerprint.language)
+            versioned = fingerprint.model_copy(update={"version": next_version})
 
-        version_file = lang_dir / f"v{next_version}.json"
-        version_file.write_text(versioned.to_json(), encoding="utf-8")
+            version_file = lang_dir / f"v{next_version}.json"
+            version_file.write_text(versioned.to_json(), encoding="utf-8")
 
-        self._write_pointer(fingerprint.language, next_version)
-        return next_version
+            self._write_pointer(fingerprint.language, next_version)
+            return next_version
 
     def rollback(self, language: str, version: int) -> None:
         """
@@ -77,11 +91,12 @@ class FingerprintStore:
 
         Wirft FingerprintNotFoundError wenn die Version nicht existiert.
         """
-        if not self._version_file(language, version).exists():
-            raise FingerprintNotFoundError(
-                f"Fingerprint-Version {version} für Sprache '{language}' nicht gefunden."
-            )
-        self._write_pointer(language, version)
+        with FileLock(self._lock_path(language)):
+            if not self._version_file(language, version).exists():
+                raise FingerprintNotFoundError(
+                    f"Fingerprint-Version {version} für Sprache '{language}' nicht gefunden."
+                )
+            self._write_pointer(language, version)
 
     # ------------------------------------------------------------------
     # Lesen
@@ -91,10 +106,14 @@ class FingerprintStore:
         """
         Lädt den aktuell aktiven Fingerprint für die gegebene Sprache.
 
+        Hält den Lock für die gesamte Pointer-Lese + Versions-Lade-Sequenz,
+        um das TOCTOU-Race zu vermeiden.
+
         Wirft FingerprintNotFoundError wenn kein Fingerprint vorhanden.
         """
-        version = self._read_pointer(language)
-        return self.load_version(language, version)
+        with FileLock(self._lock_path(language)):
+            version = self._read_pointer(language)
+            return self.load_version(language, version)
 
     def load_version(self, language: str, version: int) -> Fingerprint:
         """Lädt eine spezifische Fingerprint-Version."""
@@ -138,6 +157,10 @@ class FingerprintStore:
 
     def _lang_dir(self, language: str) -> Path:
         return self._base / language
+
+    def _lock_path(self, language: str) -> Path:
+        """Lock-Datei liegt im base-Verzeichnis, einmal pro Sprache."""
+        return self._base / f".{language}.lock"
 
     def _version_file(self, language: str, version: int) -> Path:
         return self._lang_dir(language) / f"v{version}.json"

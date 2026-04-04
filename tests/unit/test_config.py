@@ -49,7 +49,7 @@ class TestValidConfig:
         config = load_config(p)
         assert config.checks.semantic is True
         assert config.checks.structure is True
-        assert config.max_retries == 3
+        assert config.max_retries == 2
 
     def test_optional_fallback_llm_absent(self, tmp_path):
         p = write_yaml(tmp_path, VALID_CONFIG)
