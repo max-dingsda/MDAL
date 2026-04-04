@@ -10,17 +10,17 @@ MDAL ist darauf ausgelegt, Modellantworten nicht sofort weiterzureichen, sondern
 
 Die Hauptaufgabe von MDAL ist nicht Transport, sondern Stabilisierung. Die Schicht existiert, um Schwankungen in Modellverhalten, Antwortqualität und Strukturtreue abzufedern und in ein verlässlicheres Nutzungserlebnis zu übersetzen.
 
-### Referenzniveau statt Absolutheit
+### Referenzniveau statt pauschaler Qualitätsbehauptung
 
-MDAL prüft Antworten gegen ein bekanntes Referenzniveau. Das bedeutet nicht, dass jede Antwort identisch sein muss. Es bedeutet, dass Abweichungen von einem akzeptierten Qualitätskorridor erkennbar und behandelbar werden.
+MDAL prüft Antworten gegen ein bekanntes Referenzniveau. Bei freier Prosa bedeutet das in erster Linie Stilprüfung und gegebenenfalls Transformation oder feinere Nachschärfung im Sinne eines Refinements. Eine weitergehende fachliche oder formale Qualitätsprüfung erfolgt nur dort, wo passende Prüfplugins vorhanden sind.
 
-### Validierung vor Vertrauen
+### Validierung nur bei vorhandener Prüfbasis
 
-Insbesondere bei strukturierten Inhalten gilt: Plausibilität genügt nicht. Wenn strukturierte Ergebnisse erzeugt werden und ein geeignetes Prüfplugin vorhanden ist, muss die formale oder fachliche Validierung Teil der Freigabelogik sein.
+Insbesondere bei strukturierten Inhalten gilt: Plausibilität genügt nicht. Wenn geeignete Prüfplugins oder Schemata vorliegen, muss die formale oder fachliche Validierung Teil der Freigabelogik sein. Fehlt diese Prüfbasis, darf auch keine weitergehende Qualitätsaussage suggeriert werden.
 
 ### Eskalation statt stiller Verwässerung
 
-Wenn das System die gewünschte Qualität nicht innerhalb definierter Grenzen erreichen kann, ist Eskalation die korrekte Reaktion. MDAL ist nicht dafür da, problematische Ergebnisse unbemerkt in den Regelbetrieb zu schleusen.
+Wenn das System die gewünschte Stabilität oder Validität nicht innerhalb definierter Grenzen erreichen kann, ist Eskalation die korrekte Reaktion. MDAL ist nicht dafür da, problematische Ergebnisse unbemerkt in den Regelbetrieb zu schleusen.
 
 ## Nicht-Ziele
 
@@ -30,7 +30,7 @@ MDAL ist kein Mechanismus zur vollständigen Determinisierung von Sprachmodellen
 
 ### Kein Ersatz für Domänenlogik
 
-MDAL ersetzt nicht die fachlichen Regeln der konsumierenden Anwendung. Es kann Qualität und Struktur kontrollieren, aber nicht die vollständige Geschäftslogik eines Zielsystems übernehmen.
+MDAL ersetzt nicht die fachlichen Regeln der konsumierenden Anwendung. Es kann Stiltreue kontrollieren und strukturierte Inhalte validieren, sofern Prüfbasis vorhanden ist, übernimmt aber nicht die vollständige Geschäftslogik eines Zielsystems.
 
 ### Keine vollständige Unabhängigkeit vom Modell
 
@@ -38,11 +38,11 @@ MDAL reduziert wahrnehmbare Model-Shift-Effekte, macht eine Anwendung aber nicht
 
 ### Keine unbegrenzte automatische Reparatur
 
-Retry und Refinement sind kontrollierte Mechanismen, keine Endlosschleifen. Wenn Qualitätsmängel nicht innerhalb definierter Grenzen behebbar sind, muss das System abbrechen oder eskalieren.
+Transformation, Refinement und Retry sind kontrollierte Mechanismen, keine Endlosschleifen. Wenn Abweichungen nicht innerhalb definierter Grenzen behebbar sind, muss das System abbrechen oder eskalieren.
 
-### Keine stillschweigende Akzeptanz fehlender Prüfbausteine
+### Keine stillschweigende Qualitätsbehauptung ohne Plugin
 
-Wenn strukturierte Inhalte validiert werden müssen, darf das Fehlen eines erforderlichen Plugins nicht still ignoriert werden. Eine solche Lücke ist fachlich relevant und muss in der Entscheidung berücksichtigt werden.
+Wenn strukturierte Inhalte validiert werden müssten, darf das Fehlen eines erforderlichen Plugins nicht in eine implizite Qualitätsfreigabe umgedeutet werden. Ohne Prüfbasis ist nur eine begrenzte Aussage über Verwendbarkeit möglich.
 
 ## Leitgedanke
 
@@ -50,18 +50,23 @@ Die Betriebsphilosophie von MDAL lässt sich in einem Satz zusammenfassen:
 
 > Nicht jede Modellantwort ist ein Ergebnis, und nicht jedes Ergebnis ist für den Regelbetrieb geeignet.
 
-Genau deshalb kombiniert MDAL Referenzniveau, Verifikation, strukturierte Validierung, Retry und Eskalation zu einem gemeinsamen Qualitätsmechanismus.
+Dabei gilt zusätzlich:
+
+> Nicht jede akzeptierte Antwort wurde fachlich vollvalidiert; die Tiefe der Prüfung hängt davon ab, welche Prüfbasis für den jeweiligen Inhalt tatsächlich verfügbar ist.
 
 ## Übersicht der Betriebsprinzipien
 
 ```mermaid
 flowchart LR
     A[LLM liefert Antwort] --> B[Prüfung gegen Referenzniveau]
-    B --> C[Optionale Strukturvalidierung]
-    C --> D{Ergebnis innerhalb Qualitätskorridor?}
-    D -- Ja --> E[Freigabe]
-    D -- Nein --> F[Refinement / Retry]
-    F --> G{Noch innerhalb Betriebsgrenzen?}
-    G -- Ja --> B
-    G -- Nein --> H[Eskalation]
+    B --> C{Strukturierter Inhalt mit Plugin?}
+    C -- Ja --> D[Formale / fachliche Validierung]
+    C -- Nein --> E[Stilprüfung / Transformation / Refinement]
+    D --> F{Innerhalb Korridor?}
+    E --> F
+    F -- Ja --> G[Freigabe]
+    F -- Nein --> H[Transformation, Refinement oder Retry]
+    H --> I{Noch innerhalb Betriebsgrenzen?}
+    I -- Ja --> B
+    I -- Nein --> J[Eskalation]
 ```

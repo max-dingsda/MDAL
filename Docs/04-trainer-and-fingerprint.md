@@ -1,128 +1,113 @@
-# Trainer und Fingerprint-Modell
+# Trainer and Fingerprint
 
-## Fingerprint-Datenmodell
+## Überblick
 
-Das Datenmodell liegt in `mdal/fingerprint/models.py`.
+Der Trainer- und Fingerprint-Bereich beschreibt, wie MDAL ein bekanntes Referenzniveau für erwartbares Modellverhalten aufbaut und zur Laufzeit nutzt. Der zentrale Gedanke ist dabei nicht, einem Modell einfach einen gewünschten Stil per Prompt mitzugeben, sondern ein belastbares Vergleichsniveau zu schaffen, gegen das Antworten später eingeordnet werden können.
+
+Gerade darin unterscheidet sich der Fingerprint von einer bloßen Prompt-Vorgabe: Ein Prompt beeinflusst die Erzeugung. Ein Fingerprint beschreibt das Zielniveau, gegen das das Ergebnis später geprüft wird.
+
+## Fachliche Rolle des Fingerprints
+
+Der Fingerprint ist das Referenzobjekt für erwartbares Verhalten eines Modells in einem bestimmten Nutzungskontext. Er steht damit zwischen zwei Extremen:
+- Er ist mehr als ein einzelner Stilhinweis oder ein Few-Shot-Beispiel.
+- Er ist weniger als eine vollständige fachliche Garantie über jeden Inhalt.
+
+Fachlich dient der Fingerprint vor allem dazu:
+- Model-Shift-Effekte erkennbar zu machen
+- Stil- und Verhaltensdrift zu dämpfen
+- ein akzeptiertes Zielniveau für Antworten zu operationalisieren
+- Entscheidungen über Transformation, Refinement oder Retry zu fundieren
+
+## Abgrenzung zu ähnlichen Konzepten
+
+### Fingerprint vs. Prompt
+
+Ein Prompt ist eine Eingabe an das Modell. Er sagt dem Modell, was erzeugt werden soll oder wie es sich verhalten soll.
+
+Ein Fingerprint ist dagegen kein Steuerbefehl an das Modell, sondern ein Referenzrahmen für die Bewertung des erzeugten Ergebnisses. Er kann aus denselben inhaltlichen Domänen stammen wie ein Prompt, erfüllt aber eine andere Funktion.
+
+Kurz:
+- Prompt = beeinflusst die Erzeugung
+- Fingerprint = bewertet die Erzeugung gegen ein Zielniveau
+
+### Fingerprint vs. Few-Shot-Beispiele
+
+Few-Shot-Beispiele demonstrieren dem Modell ein gewünschtes Muster direkt im Prompt-Kontext. Sie dienen primär der In-Context-Steuerung.
+
+Ein Fingerprint ist dauerhafter und systemischer gedacht:
+- nicht bloß Demonstration eines Musters
+- sondern referenzierbare Erwartung an wiederkehrendes Verhalten
+- nicht nur zur Generierung, sondern zur Einordnung und Stabilisierung
+
+### Fingerprint vs. Policy
+
+Eine Policy formuliert Regeln oder Grenzen, etwa „antworte knapp“ oder „verwende keine Halluzinationen“. Policies sind normative Vorgaben.
+
+Ein Fingerprint ist demgegenüber stärker empirisch und referenzbasiert. Er repräsentiert ein bekanntes akzeptiertes Niveau, das aus Training, Auswahl oder Kuratierung hervorgegangen ist. Er beschreibt daher nicht nur Soll-Regeln, sondern ein tatsächlich akzeptiertes Vergleichsmuster.
+
+## Warum der Fingerprint nötig ist
+
+Ohne Fingerprint bleibt die Bewertung einer Modellantwort diffus. Man kann zwar sagen, dass eine Antwort „gut klingt“ oder „nicht so wirkt wie früher“, aber diese Einschätzung bleibt schwer operationalisierbar.
+
+Der Fingerprint macht daraus einen überprüfbaren Mechanismus:
+- Es gibt ein bekanntes Zielniveau.
+- Antworten werden dagegen eingeordnet.
+- Abweichungen werden nicht nur gespürt, sondern systematisch behandelt.
+
+Damit ist der Fingerprint ein Kernbaustein für die Reduktion von Model-Shift-Erfahrungen.
+
+## Was der Fingerprint leisten kann – und was nicht
+
+### Was er leisten kann
+
+- Referenzniveau für Stil und Antwortcharakter bereitstellen
+- Drift im Antwortverhalten sichtbar machen
+- Entscheidungen über Transformation, Refinement und Retry unterstützen
+- Konsistenz innerhalb definierter Nutzungskontexte erhöhen
+
+### Was er nicht leisten kann
+
+- keine vollständige inhaltliche oder fachliche Validierung jedes Outputs
+- keine Determinisierung des Modells
+- kein Ersatz für Plugin-basierte Strukturvalidierung
+- keine Garantie, dass jedes Modell bei jedem Thema dasselbe Niveau erreicht
+
+## Rolle des Trainers
+
+Der Trainer dient dazu, Fingerprints nicht rein intuitiv, sondern reproduzierbar aufzubauen. Das Ziel ist ein belastbares Referenzobjekt, das später im Betrieb nutzbar ist.
+
+Fachlich bedeutet das:
+- Auswahl eines akzeptierten Zielniveaus
+- Ableitung oder Kuratierung der relevanten Referenzmerkmale
+- Ablage in einer Form, die von der Runtime referenziert werden kann
+- mögliche Versionierung nach Modellstand, Kontext oder Sprache
+
+Der Trainer ist damit kein bloßes Komfortwerkzeug, sondern der vorbereitende Schritt zur Operationalisierung des Referenzniveaus.
+
+## Laufzeitnutzung
+
+Zur Laufzeit wird der Fingerprint nicht primär „an das Modell geschickt“, sondern als Bewertungsgrundlage verwendet. Er beeinflusst damit die Entscheidung, ob ein Ergebnis:
+- akzeptiert
+- transformiert
+- verfeinert
+- erneut erzeugt
+- oder eskaliert wird
+
+Der Fingerprint ist also ein Bestandteil der Kontrollschicht, nicht nur der Erzeugungsschicht.
+
+## Überblick Trainer → Fingerprint → Runtime
 
 ```mermaid
-classDiagram
-    class Fingerprint {
-      +str id
-      +int version
-      +str language
-      +datetime created_at
-      +StyleRules layer1
-      +EmbeddingProfile layer2
-      +GoldenSamples layer3
-    }
-
-    class StyleRules {
-      +int formality_level
-      +int avg_sentence_length_max
-      +list preferred_vocabulary
-      +list avoided_vocabulary
-      +list custom_rules
-    }
-
-    class EmbeddingProfile {
-      +list centroid
-      +str model_name
-      +int sample_count
-      +int dimensions
-    }
-
-    class GoldenSamples {
-      +list samples
-    }
-
-    class GoldenSample {
-      +str prompt
-      +str response
-    }
-
-    Fingerprint --> StyleRules
-    Fingerprint --> EmbeddingProfile
-    Fingerprint --> GoldenSamples
-    GoldenSamples --> GoldenSample
+flowchart LR
+    A[Trainer] --> B[Fingerprint erzeugen / kuratieren]
+    B --> C[Referenzniveau speichern]
+    C --> D[Runtime lädt Fingerprint]
+    D --> E[Antwort gegen Referenzniveau einordnen]
+    E --> F{Ausreichend nah?}
+    F -- Ja --> G[Akzeptieren]
+    F -- Nein --> H[Transformation / Refinement / Retry]
 ```
 
-## FingerprintStore
+## Fachliche Kernaussage
 
-`mdal/fingerprint/store.py` speichert Fingerprints dateisystembasiert und versioniert.
-
-### Tatsächliche Verzeichnisstruktur
-
-```text
-{base_path}/
-  de/
-    current
-    v1.json
-    v2.json
-  en/
-    current
-    v1.json
-```
-
-### Verhalten
-
-- `save()` vergibt die nächste Versionsnummer
-- `load_current()` lädt die aktive Version
-- `load_version()` lädt explizite Versionen
-- `rollback()` setzt den Pointer `current` zurück
-
-Wichtig: Der Store ist laut Modulkommentar **nicht für gleichzeitige Schreibzugriffe ausgelegt**.  
-In `phasenplanung.txt` ist deshalb ein späterer Locking-Fix als Pre-Go-Live-Maßnahme vermerkt.
-
-## Offline-Trainer
-
-Der Trainer liegt in `mdal/trainer/trainer.py` und wird per CLI über `mdal-train` aufgerufen.
-
-## Trainer-Ablauf
-
-```mermaid
-flowchart TD
-    A[Konversationsdateien laden] --> B[Assistent-Antworten sammeln]
-    B --> C[Layer 1 per LLM extrahieren]
-    B --> D[Layer 2 Embeddings berechnen]
-    A --> E[Prompt-Response-Paare bilden]
-    E --> F[Golden Samples per LLM selektieren]
-    C --> G[Fingerprint bauen]
-    D --> G
-    F --> G
-    G --> H[FingerprintStore.save]
-```
-
-## Was der Trainer konkret tut
-
-### Layer 1
-Aus Assistent-Antworten wird per LLM ein JSON mit Stilregeln extrahiert:
-
-- Formalität
-- maximale Satzlänge
-- bevorzugtes Vokabular
-- vermiedenes Vokabular
-- Freitextregeln
-
-### Layer 2
-Für jede Assistent-Antwort wird ein Embedding erzeugt; daraus bildet der Trainer den Centroid.
-
-### Layer 3
-Aus User/Assistant-Turn-Paaren werden repräsentative Golden Samples selektiert.
-
-## Wichtige Implementation Details
-
-### Fallback bei Golden-Sample-Selektion
-Wenn die LLM-Antwort für die Sample-Selektion kein brauchbares JSON liefert, verwendet der Trainer die ersten N Kandidaten.  
-Das ist laut `bearbeitungshinweise.txt` bewusst die einzige tolerierte stille Fallback-Stelle, weil es sich um Offline-Kalibrierung handelt.
-
-### Kein entsprechender Fallback in Layer 1
-Die Stilregel-Extraktion bricht bei unbrauchbarem JSON ab und wirft `TrainerError`.
-
-### CLI
-`trainer.py` enthält neben der Kernlogik auch:
-
-- Dateilader für JSON-Konversationen
-- Argumentparser
-- Startpunkt `main()`
-
-Damit ist das Modul gleichzeitig Bibliotheks- und CLI-Einstiegspunkt.
+Der Fingerprint ist in MDAL nicht bloß ein hübscher Name für Stilvorgaben. Er ist das betriebliche Referenzniveau für erwartbares Verhalten. Genau dadurch wird aus einem unscharfen Eindruck von Modell-Drift ein kontrollierbarer Mechanismus zur Stabilisierung des Nutzererlebnisses.

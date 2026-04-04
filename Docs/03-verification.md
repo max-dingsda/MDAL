@@ -1,126 +1,93 @@
-# Verifikation und Scoring
+# Verification
 
-## Überblick
+## Ziel der Verification
 
-Die Verifikation ist der Kern des Systems. Sie wird in `mdal/verification/engine.py` orchestriert.
+Die Verification in MDAL dient dazu, Modellantworten nicht nur technisch entgegenzunehmen, sondern sie im Rahmen der tatsächlich verfügbaren Prüfbasis einzuordnen. Sie entscheidet also nicht abstrakt über „gut“ oder „schlecht“, sondern darüber, ob ein Ergebnis im jeweiligen Kontext ausreichend belastbar ist.
 
-Der Code kombiniert zwei Prüfdimensionen:
+Wichtig ist die fachliche Abgrenzung:
+- MDAL führt nicht automatisch für jede Antwort eine umfassende qualitative Inhaltsprüfung durch.
+- Bei freier Prosa erfolgt primär eine Stilprüfung gegen das bekannte Referenzniveau.
+- Eine weitergehende fachliche oder formale Validierung ist nur dort möglich, wo ein passendes Prüfplugin oder Schema vorhanden ist.
 
-- **Struktur** für JSON/XML
-- **Semantik/Stil** für alle Outputs
+## Verification-Ebenen
 
-## Entscheidungskaskade
+### 1. Stilprüfung gegen Referenzniveau
+
+Diese Ebene ist der generelle Kern der Verification. Sie bewertet, wie nah eine Antwort am erwarteten Zielverhalten liegt. Typische Aspekte sind:
+- Tonalität
+- Antwortcharakter
+- formale Konsistenz im weiteren Sinn
+- Nähe zum Fingerprint
+
+Diese Prüfung ist besonders relevant für freie Prosa. Sie dient der Dämpfung von Model-Shift-Effekten und der Stabilisierung des Nutzererlebnisses.
+
+### 2. Strukturbezogene Validierung
+
+Wenn ein Ergebnis strukturierte Inhalte enthält und ein passendes Plugin vorhanden ist, kann eine zusätzliche Validierung stattfinden. Diese geht über Stilprüfung hinaus und adressiert unter anderem:
+- syntaktische Korrektheit
+- formale Zulässigkeit
+- domänenspezifische Regeln
+- Schema-Konformität
+
+Ein Beispiel wäre die Validierung eines ArchiMate-XML gegen das passende Schema oder gegen ergänzende Regelwerke.
+
+### 3. Ableitung einer Folgemaßnahme
+
+Verification endet nicht bei der Feststellung eines Befunds. Sie erzeugt ein auswertbares Ergebnis für die nächste Prozessentscheidung:
+- akzeptieren
+- transformieren
+- retry
+- eskalieren
+
+## Warum diese Trennung wichtig ist
+
+Ohne diese Unterscheidung würde die Doku suggerieren, MDAL könne jede Antwort fachlich umfassend validieren. Genau das wäre zu viel behauptet.
+
+Die tatsächliche Prüftiefe hängt vom Inhaltstyp ab:
+- **Freie Prosa**: Stilprüfung und ggf. Transformation
+- **Strukturierte Inhalte mit Plugin**: zusätzliche formale oder fachliche Validierung
+- **Strukturierte Inhalte ohne Plugin**: keine belastbare Strukturprüfung möglich
+
+Damit ist Verification in MDAL bewusst gestuft statt pauschal.
+
+## Verification-Ablauf
 
 ```mermaid
 flowchart TD
-    A[Output vollständig vorhanden] --> B[Format erkennen]
+    A[Modellantwort] --> B[Einordnung gegen Referenzniveau]
+    B --> C{Freie Prosa?}
 
-    B --> C{Strukturiert?}
-    C -- Nein --> D[Semantik prüfen]
-    C -- Ja --> E{Strukturprüfung aktiv?}
+    C -- Ja --> D[Stilprüfung]
+    C -- Nein --> E{Passendes Prüfplugin vorhanden?}
 
-    E -- Ja --> F[StructureChecker]
-    E -- Nein --> D
+    E -- Ja --> F[Formale / fachliche Validierung]
+    E -- Nein --> G[Begrenzte Aussage über Struktur]
 
-    F --> G{Struktur ok?}
-    G -- Nein --> R[REFINEMENT]
-    G -- Ja --> D
+    D --> H[Verification Result]
+    F --> H
+    G --> H
 
-    D --> H[Layer 1 und Layer 2 parallel]
-    H --> I[ScoringEngine entscheidet]
-
-    I -->|OUTPUT| O[Output unverändert zurückgeben]
-    I -->|TRANSFORM| T[regelbasierte Transformation]
-    I -->|REFINEMENT| R
-    I -->|TIEBREAK| J[Layer 3 LLM-as-Judge]
-
-    J --> K{passt?}
-    K -- Ja --> T
-    K -- Nein --> R
+    H --> I{Folgemaßnahme}
+    I -- akzeptieren --> J[Freigabe]
+    I -- transformieren --> K[Transformation]
+    I -- retry --> L[Neuversuch]
+    I -- eskalieren --> M[Eskalation]
 ```
 
-## Format-Erkennung
+## Verification Result
 
-`mdal/verification/detector.py` erkennt, ob ein Output als:
+Das Verification Result bündelt die Erkenntnisse der Prüfung in einer Form, die für den weiteren Ablauf nutzbar ist. Es kann unter anderem enthalten:
+- Bewertung der Stiltreue
+- Hinweise auf Abweichungen vom Fingerprint
+- Ergebnisse einer Plugin-Validierung
+- Grenzen der Aussagekraft, wenn keine Prüfbasis vorhanden ist
+- empfohlene Folgemaßnahme
 
-- JSON
-- XML
-- Prosa
+## Fachlicher Nutzen
 
-behandelt wird.
+Der Nutzen der Verification liegt nicht darin, jede Modellantwort „objektiv“ zu bewerten. Der Nutzen liegt darin, die jeweils real verfügbare Prüftiefe sauber zu operationalisieren und daraus belastbare Prozessentscheidungen abzuleiten.
 
-Die Doku-Notiz in `bearbeitungshinweise.txt` ist wichtig: **Malformed JSON wird absichtlich nicht als strukturierter JSON-Output behandelt, wenn das Parsing fehlschlägt.** In diesem Fall landet der Output als Prosa im System. Strukturfehler greifen also nur auf erfolgreich erkanntem JSON/XML.
-
-## Strukturprüfung
-
-Die Strukturprüfung liegt in `mdal/verification/structure.py`.
-
-### XML
-Für XML läuft die Prüfung in zwei möglichen Stufen:
-
-1. XSD-Validierung, wenn das Plugin `schema.xsd` liefert
-2. Elementlisten-Validierung, wenn das Plugin `elements.json` liefert
-
-Die Plugin-Auflösung erfolgt typischerweise über den XML-Namespace.
-
-### JSON
-Für JSON wird analog mit Plugin-Regeln gearbeitet; ohne passendes Plugin bleibt zumindest die syntaktische Wohlgeformtheit relevant.
-
-### Plugins
-`mdal/plugins/registry.py` lädt Plugins aus dem Dateisystem.  
-Erwartet wird pro Plugin ein Ordner mit mindestens:
-
-- `manifest.json`
-- und mindestens einer der Dateien:
-  - `schema.xsd`
-  - `elements.json`
-
-Ungültige Plugins werden übersprungen statt den gesamten Start abzubrechen.
-
-## Semantikprüfung
-
-### Layer 1 — Regelprüfung
-`mdal/verification/semantic/layer1.py`
-
-Diese Schicht arbeitet deterministisch gegen den Fingerprint:
-
-- Formalitätsniveau
-- Satzlängenheuristik
-- bevorzugtes / zu vermeidendes Vokabular
-- benutzerdefinierte Regeln
-
-Die Heuristik ist bewusst kalibrierbar; darauf weist `bearbeitungshinweise.txt` explizit hin.
-
-### Layer 2 — Embedding-Vergleich
-`mdal/verification/semantic/layer2.py`
-
-Diese Schicht berechnet ein Embedding des aktuellen Outputs und vergleicht es per Cosine Similarity mit dem Fingerprint-Centroid.  
-Die Schwellwerte sind direkt im Modul sichtbar:
-
-- `THRESHOLD_HIGH = 0.85`
-- `THRESHOLD_LOW  = 0.65`
-
-### Layer 3 — LLM-as-Judge
-`mdal/verification/semantic/layer3.py`
-
-Diese Schicht wird nur im Tiebreak-Fall aktiviert.  
-Sie erhält Golden Samples aus dem Fingerprint und entscheidet binär, ob der Stil passt.
-
-## ScoringEngine
-
-`mdal/verification/semantic/scorer.py` setzt die Entscheidungstabelle um:
-
-- low in S1 oder S2 → `REFINEMENT`
-- high in S1 und S2 → `OUTPUT`
-- high + medium → `TRANSFORM`
-- medium + medium → `TIEBREAK`
-
-Nach Layer 3 gilt:
-
-- passt → `TRANSFORM`
-- passt nicht → `REFINEMENT`
-
-## Parallelisierung
-
-Layer 1 und Layer 2 werden in `VerificationEngine._run_semantic_parallel()` per `ThreadPoolExecutor` parallel ausgeführt.  
-Das ist im PoC relevant, weil Layer 2 einen Netzwerkaufruf zum Embedding-Endpunkt auslöst.
+Dadurch wird vermieden, dass:
+- stilistische Drift unbemerkt bleibt
+- formale Fehler strukturierter Inhalte übersehen werden, wenn eine Prüfbasis vorhanden ist
+- fehlende Prüfbasis fälschlich wie eine bestandene Validierung behandelt wird

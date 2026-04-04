@@ -6,16 +6,17 @@ MDAL wurde entwickelt, um Anwendungen von Schwankungen zugrunde liegender Large 
 
 MDAL adressiert dieses Problem, indem Modellantworten nicht ungeprüft weitergereicht, sondern gegen ein bekanntes Referenzniveau bewertet werden. Ziel ist nicht, bei jedem Aufruf identische Antworten zu erzwingen. Ziel ist vielmehr, ein stabiles, erwartbares Qualitätsniveau sicherzustellen und wahrnehmbare Model-Shift-Effekte für den Nutzer zu reduzieren.
 
-Zusätzlich kann MDAL strukturierte Inhalte validieren, sofern passende Prüfplugins vorhanden sind. Dadurch entsteht aus einem einfachen Modellaufruf ein kontrollierter Verarbeitungsprozess, in dem sowohl sprachliche als auch formale Qualität abgesichert werden können.
+Wichtig ist dabei die fachliche Abgrenzung: MDAL führt nicht pauschal eine inhaltliche Qualitätsprüfung jedes Ergebnisses durch. Bei freier Prosa erfolgt primär eine Prüfung auf Stiltreue zum Referenzniveau und bei Bedarf eine Transformation. Eine weitergehende qualitative oder fachliche Prüfung findet nur dann statt, wenn für den jeweiligen strukturierten Inhalt ein passendes Prüfplugin vorhanden ist. Ein ArchiMate-XML kann beispielsweise nur dann fachlich oder formal validiert werden, wenn das entsprechende Schema bzw. Plugin verfügbar ist.
 
 ## Fachliche Rolle im Gesamtsystem
 
 Fachlich ist MDAL eine Qualitäts- und Stabilisierungsschicht zwischen konsumierender Anwendung und Sprachmodell. Diese Schicht übernimmt insbesondere folgende Verantwortungen:
 
 - Dämpfung von Model-Shift-Effekten
-- Bewertung von Antworten gegen ein bekanntes Zielniveau
-- Validierung strukturierter Inhalte über Plugins
-- kontrollierte Nachbesserung bei Qualitätsabweichungen
+- Bewertung von Antworten gegen ein bekanntes Referenzniveau
+- Stilprüfung freier Prosa und ggf. Transformation
+- Validierung strukturierter Inhalte über Plugins, sofern passende Prüfbasis vorliegt
+- kontrollierte Nachbesserung bei Abweichungen
 - geregelte Eskalation bei nicht behebbaren Verstößen
 
 MDAL übernimmt bewusst nicht die fachliche Verantwortung der konsumierenden Anwendung. Es ersetzt weder Geschäftslogik noch Domänenregeln des aufrufenden Systems. Es stabilisiert und kontrolliert die Interaktion mit dem Modell.
@@ -30,7 +31,7 @@ Der MDAL Request ist die fachliche Einheit, mit der eine Anwendung eine Modellve
 
 Der Fingerprint ist das zentrale Referenzobjekt von MDAL. Fachlich beschreibt er ein akzeptiertes Zielniveau, gegen das Modellantworten bewertet werden. Dazu können unter anderem sprachlicher Stil, Strukturmerkmale, Vollständigkeitserwartungen oder typische Antwortcharakteristika gehören.
 
-Ein Fingerprint ist keine bloße Prompt-Vorlage. Er ist eine operationalisierte Referenz für erwartbares Modellverhalten.
+Ein Fingerprint ist keine bloße Prompt-Vorlage. Er ist auch nicht einfach mit Few-Shot-Beispielen oder einer Policy gleichzusetzen. Er ist eine operationalisierte Referenz für erwartbares Modellverhalten.
 
 Wesentliche Eigenschaften:
 - versionsgebunden, da Referenzniveaus zu bestimmten Modellständen gehören
@@ -40,13 +41,13 @@ Wesentliche Eigenschaften:
 
 ### Verification Result
 
-Das Verification Result fasst das Ergebnis der Qualitätsprüfung zusammen. Es dokumentiert, ob eine Antwort akzeptiert wurde, welche Abweichungen erkannt wurden und welche Folgemaßnahme daraus entsteht.
+Das Verification Result fasst das Ergebnis der Prüfung zusammen. Es dokumentiert, ob eine Antwort akzeptiert wurde, welche Abweichungen erkannt wurden und welche Folgemaßnahme daraus entsteht.
 
 Typische fachliche Inhalte:
 - akzeptiert oder nicht akzeptiert
-- Art und Schwere eines Verstoßes
-- Hinweise für Nachbesserung
-- Plugin-basierte Validierungsergebnisse
+- erkannte Stilabweichungen gegenüber dem Referenzniveau
+- Hinweise für Transformation oder Nachbesserung
+- plugin-basierte Validierungsergebnisse, sofern vorhanden
 - Grundlage für Retry oder Eskalation
 
 ### Session Context
@@ -60,7 +61,7 @@ Das ist insbesondere relevant für:
 
 ### Retry und Escalation
 
-Retry und Escalation sind keine technischen Nebeneffekte, sondern fachlich definierte Reaktionen auf Qualitätsabweichungen.
+Retry und Escalation sind keine technischen Nebeneffekte, sondern fachlich definierte Reaktionen auf Abweichungen.
 
 - Retry bedeutet: eine Antwort ist noch nicht akzeptabel, kann aber voraussichtlich durch erneute Generierung oder gezielte Nachbesserung verbessert werden.
 - Escalation bedeutet: das System verlässt den normalen Qualitätskreislauf, weil ein akzeptables Ergebnis innerhalb der vorgesehenen Grenzen nicht erreicht werden konnte.
@@ -76,15 +77,16 @@ flowchart TD
     E --> F{Akzeptiert?}
     F -- Ja --> G[Antwort an Anwendung]
     F -- Nein --> H{Retry sinnvoll?}
-    H -- Ja --> I[Retry / Refinement]
+    H -- Ja --> I[Retry / Transformation]
     I --> C
     H -- Nein --> J[Eskalation]
 
     C -. nutzt .-> K[Fingerprint]
     C -. nutzt .-> L[Session Context]
-    E -. optional .-> M[Validation Plugin]
+    D -. bei strukturierten Inhalten .-> M[Validation Plugin]
+    M -. liefert .-> E
 ```
 
 ## Fachliche Kernaussage
 
-MDAL ist fachlich kein gewöhnlicher Proxy für Modellaufrufe. Die eigentliche Leistung besteht darin, ein instabiles, vom Modell abhängiges Antwortverhalten in einen kontrollierten und bewertbaren Verarbeitungsprozess zu überführen. Der Fingerprint liefert dabei das Referenzniveau, die Verifikation bewertet konkrete Antworten dagegen, und Retry bzw. Eskalation setzen definierte Reaktionen auf Abweichungen um.
+MDAL ist fachlich kein gewöhnlicher Proxy für Modellaufrufe. Die eigentliche Leistung besteht darin, ein instabiles, vom Modell abhängiges Antwortverhalten in einen kontrollierten und bewertbaren Verarbeitungsprozess zu überführen. Der Fingerprint liefert dabei das Referenzniveau für Stil und erwartbares Antwortverhalten. Eine weitergehende fachliche oder formale Validierung erfolgt nur dort, wo passende Prüfplugins vorhanden sind.
