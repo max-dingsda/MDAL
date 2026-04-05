@@ -127,13 +127,24 @@ class VerificationEngine:
                     semantic_s3=None,
                     output_format=fmt,
                 )
+            
+            # WEICHE (F2): Wenn das Format JSON oder XML ist und die Strukturprüfung bestanden wurde,
+            # wird die Semantikprüfung komplett übersprungen!
+            return VerificationResult(
+                decision=ScoringDecision.OUTPUT,
+                structure_result=structure_result,
+                semantic_s1=None,
+                semantic_s2=None,
+                semantic_s3=None,
+                output_format=fmt,
+            )
 
         # --- Semantikprüfung ---
         s1: CheckResult | None = None
         s2: CheckResult | None = None
         s3: CheckResult | None = None
 
-        if self._checks.semantic:
+        if self._checks.semantic and not detected.is_structured():
             s1, s2 = self._run_semantic_parallel(output, fingerprint, context)
             decision = self._scorer.decide(s1, s2)
 

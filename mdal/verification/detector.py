@@ -12,6 +12,7 @@ Erkennungsreihenfolge:
 
 from __future__ import annotations
 
+import re
 import json
 from enum import Enum
 
@@ -51,6 +52,14 @@ class DetectedOutput:
         return f"DetectedOutput(format={self.format})"
 
 
+def extract_code(text: str) -> str:
+    """Extrahiert reinen Code aus Markdown-Fences, falls vorhanden."""
+    match = re.search(r"```(?:json|xml)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    return text.strip()
+
+
 def detect_format(text: str) -> DetectedOutput:
     """
     Erkennt das Format des übergebenen Textes.
@@ -58,22 +67,34 @@ def detect_format(text: str) -> DetectedOutput:
     Reihenfolge: JSON → XML → Prosa.
     Wirft keine Exception — unbekannte Formate sind Prosa.
     """
-    stripped = text.strip()
-    if not stripped:
+    clean_text = extract_code(text)
+    if not clean_text:
         return DetectedOutput(OutputFormat.PROSE)
-
-    # JSON-Erkennung
-    if stripped.startswith(("{", "[")):
+        
+    # 1. Explizite Markdown-Tags prüfen (erzwingt das Format, auch wenn kaputt!)
+    if re.search(r"```json", text, re.IGNORECASE):
+        return DetectedOutput(OutputFormat.JSON)
+        
+    if re.search(r"```xml", text, re.IGNORECASE):
         try:
-            json.loads(stripped)
-            return DetectedOutput(OutputFormat.JSON)
-        except json.JSONDecodeError:
-            pass
+            root = etree.fromstring(clean_xml.encode("utf-8"))
+            return DetectedOutput(
+                format=OutputFormat.XML,
+                xml_namespace=_extract_namespace(root.tag),
+                xml_root_tag=etree.QName(root.tag).localname,
+            )
+        except Exception:
+            return DetectedOutput(OutputFormat.XML) # Kaputtes XML wird an StructureChecker gereicht
 
-    # XML-Erkennung
-    if stripped.startswith("<"):
+    # 2. Heuristische Erkennung anhand des Inhalts
+    if clean_text.startswith(("{", "[")):
+        # Selbst wenn json.loads() fehlschlägt, ist es strukturell als JSON gedacht.
+        # Der StructureChecker wird den Parsing-Fehler dann sauber werfen.
+        return DetectedOutput(OutputFormat.JSON)
+
+    if clean_text.startswith("<"):
         try:
-            root = etree.fromstring(stripped.encode("utf-8"))
+            root = etree.fromstring(clean_text.encode("utf-8"))
             namespace = _extract_namespace(root.tag)
             root_tag  = etree.QName(root.tag).localname
             return DetectedOutput(
@@ -82,7 +103,7 @@ def detect_format(text: str) -> DetectedOutput:
                 xml_root_tag=root_tag,
             )
         except etree.XMLSyntaxError:
-            pass
+            return DetectedOutput(OutputFormat.XML) # Kaputtes XML -> StructureChecker
 
     return DetectedOutput(OutputFormat.PROSE)
 

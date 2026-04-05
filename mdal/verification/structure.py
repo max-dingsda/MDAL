@@ -23,7 +23,7 @@ from lxml import etree
 
 from mdal.interfaces.scoring import StructureCheckResult
 from mdal.plugins.registry import Plugin, PluginRegistry
-from mdal.verification.detector import DetectedOutput, OutputFormat
+from mdal.verification.detector import DetectedOutput, OutputFormat, extract_code
 
 
 class StructureChecker:
@@ -84,10 +84,11 @@ class StructureChecker:
         return StructureCheckResult(passed=True)
 
     def _validate_xsd(self, xml_text: str, plugin: Plugin) -> StructureCheckResult:
+        clean_xml = extract_code(xml_text)
         try:
             schema_doc = etree.parse(str(plugin.schema_path))
             schema     = etree.XMLSchema(schema_doc)
-            doc        = etree.fromstring(xml_text.encode("utf-8"))
+            doc        = etree.fromstring(clean_xml.encode("utf-8"))
             if schema.validate(doc):
                 return StructureCheckResult(passed=True)
             errors = "; ".join(str(e) for e in schema.error_log)
@@ -110,13 +111,14 @@ class StructureChecker:
             )
 
     def _validate_elements_xml(self, xml_text: str, plugin: Plugin) -> StructureCheckResult:
+        clean_xml = extract_code(xml_text)
         try:
             elements_def = plugin.load_elements()
             allowed:    set[str] = set(elements_def.get("allowed_elements", []))
             required:   set[str] = set(elements_def.get("required_elements", []))
             forbidden:  set[str] = set(elements_def.get("forbidden_elements", []))
 
-            doc  = etree.fromstring(xml_text.encode("utf-8"))
+            doc  = etree.fromstring(clean_xml.encode("utf-8"))
             used: set[str] = {etree.QName(el.tag).localname for el in doc.iter()}
 
             violations: list[str] = []
@@ -159,8 +161,9 @@ class StructureChecker:
 
     @staticmethod
     def _check_xml_wellformed(xml_text: str) -> StructureCheckResult:
+        clean_xml = extract_code(xml_text)
         try:
-            etree.fromstring(xml_text.encode("utf-8"))
+            etree.fromstring(clean_xml.encode("utf-8"))
             return StructureCheckResult(passed=True)
         except etree.XMLSyntaxError as exc:
             return StructureCheckResult(
@@ -185,12 +188,22 @@ class StructureChecker:
         if plugin and plugin.has_elements:
             return self._validate_elements_json(output, plugin)
 
-        # Keine erweiterte Validierung → wohlgeformt reicht
+        # Keine erweiterte Validierung → wir müssen aber zwingend die Wohlgeformtheit prüfen!
+        clean_json = extract_code(output)
+        try:
+            json.loads(clean_json)
+        except json.JSONDecodeError as exc:
+            return StructureCheckResult(
+                passed=False,
+                error_report=f"JSON nicht wohlgeformt: {exc}",
+                failed_at="json_parsing"
+            )
         return StructureCheckResult(passed=True)
 
     def _validate_elements_json(self, json_text: str, plugin: Plugin) -> StructureCheckResult:
+        clean_json = extract_code(json_text)
         try:
-            data         = json.loads(json_text)
+            data         = json.loads(clean_json)
             elements_def = plugin.load_elements()
             required: set[str] = set(elements_def.get("required_elements", []))
             forbidden: set[str] = set(elements_def.get("forbidden_elements", []))

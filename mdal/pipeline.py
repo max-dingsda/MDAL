@@ -36,6 +36,7 @@ from mdal.session import SessionContext
 from mdal.status import QueueStatusReporter, StatusMessage, StatusReporter
 from mdal.transformer import LLMToneTransformer
 from mdal.verification.engine import VerificationEngine, VerificationResult
+from mdal.verification.detector import detect_format
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +44,18 @@ logger = logging.getLogger(__name__)
 # Refinement-Prompt
 # ---------------------------------------------------------------------------
 
-_REFINEMENT_USER_MESSAGE = (
-    "Bitte überarbeite deine letzte Antwort. "
-    "Folgende Probleme wurden festgestellt: {error_summary} "
-    "Behalte Struktur, Reihenfolge und Vollständigkeit der Antwort unverändert bei."
-)
+_REFINEMENT_USER_MESSAGE = """\
+Deine letzte Antwort war fehlerhaft und wurde vom System zurückgewiesen.
+
+FESTGESTELLTE FEHLER:
+{error_summary}
+
+DEINE ABGELEHNTE ANTWORT:
+{prev_output}
+
+AUFGABE:
+Bitte korrigiere die genannten Fehler und generiere die Antwort neu. Behalte die inhaltliche Struktur, Fakten, Reihenfolge und Vollständigkeit der Antwort unter allen Umständen UNVERÄNDERT bei!
+"""
 
 
 def _build_refinement_messages(
@@ -56,15 +64,17 @@ def _build_refinement_messages(
     error_summary:     str,
 ) -> list[dict]:
     """
-    Hängt den vorherigen Output und einen Korrektur-Hinweis an die
-    Original-Messages an — ohne den Original-Kontext zu verändern.
+    Hängt einen expliziten Korrektur-Hinweis inkl. des fehlerhaften Outputs an die
+    Original-Messages an.
     """
     return [
         *original_messages,
-        {"role": "assistant", "content": prev_output},
         {
             "role":    "user",
-            "content": _REFINEMENT_USER_MESSAGE.format(error_summary=error_summary),
+            "content": _REFINEMENT_USER_MESSAGE.format(
+                error_summary=error_summary,
+                prev_output=prev_output
+            ),
         },
     ]
 
@@ -173,8 +183,11 @@ class PipelineOrchestrator:
         def verify(output: str, ctx: SessionContext) -> VerificationResult:
             self._status.report(StatusMessage.CHECKING)
             
+            # F2: Strukturierte Outputs erkennen
+            is_structured = detect_format(output).is_structured()
+
             # F8: Hard Language Lock (Sprach-Drift hart blockieren)
-            if detect is not None and len(output.split()) > 10:
+            if not is_structured and detect is not None and len(output.split()) > 10:
                 try:
                     detected_lang = detect(output)
                     if not language.startswith(detected_lang):
