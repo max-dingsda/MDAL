@@ -26,7 +26,7 @@ from mdal.interfaces.llm import LLMAdapterProtocol
 from mdal.retry import RetryController
 from mdal.session import SessionContext
 from mdal.status import QueueStatusReporter, StatusMessage, StatusReporter
-from mdal.transformer import RuleBasedToneTransformer
+from mdal.transformer import LLMToneTransformer
 from mdal.verification.engine import VerificationEngine, VerificationResult
 
 # ---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ class PipelineOrchestrator:
         self,
         llm:          LLMAdapterProtocol,
         verification: VerificationEngine,
-        transformer:  RuleBasedToneTransformer,
+        transformer:  LLMToneTransformer,
         store:        FingerprintStore,
         retry:        RetryController,
         status:       StatusReporter | None = None,

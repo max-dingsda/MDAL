@@ -74,6 +74,17 @@ class AdminNotifier:
             "details":    details,
         })
 
+    def notify_technical_crash(self, error: str, details: str, traceback_str: str) -> None:
+        """
+        F4/F11: Unbehandelter technischer Absturz (z.B. Timeout, interner Bug).
+        Wird vom globalen Exception-Handler aufgerufen, um Silent Fails zu verhindern.
+        """
+        self._notify("technical_crash", {
+            "error":     error,
+            "details":   details,
+            "traceback": traceback_str,
+        })
+
     # ------------------------------------------------------------------
     # Internes
     # ------------------------------------------------------------------

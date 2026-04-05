@@ -16,8 +16,111 @@ Implementiert ToneTransformerProtocol → Rust-Kern (Zielarchitektur).
 from __future__ import annotations
 
 import re
+import logging
 
 from mdal.fingerprint.models import Fingerprint
+from mdal.interfaces.llm import LLMAdapterProtocol
+
+logger = logging.getLogger(__name__)
+
+_TRANSFORM_PROMPT = """\
+Deine Aufgabe ist es, die Tonalität des folgenden Textes anzupassen, ohne den inhaltlichen Sinn, die Fakten oder die Struktur zu verändern.
+
+Vorgaben:
+- Formalitätslevel: {formality} (1=sehr informell, 5=sehr formal/akademisch)
+- Bevorzugtes Vokabular: {preferred}
+- Vermiedenes Vokabular: {avoided}
+
+WICHTIG (F10 & Semantische Integrität):
+- Verändere keine Fakten, Zahlen, Eigennamen oder Zeiten.
+- Behalte Listen, Aufzählungen und die Reihenfolge der Aussagen exakt bei.
+- Verschlechtere niemals die Grammatik oder Rechtschreibung!
+- Antworte AUSSCHLIESSLICH mit dem transformierten Text, ohne Einleitung oder Erklärung.
+
+Original-Text:
+{text}
+"""
+
+_VALIDATION_PROMPT = """\
+Vergleiche Text A (Original) und Text B (Transformiert).
+
+Text A (Original):
+{original}
+
+Text B (Transformiert):
+{transformed}
+
+Prüfe STRENG: Enthält Text B noch alle Fakten, Zahlen, Eigennamen, Orte und Zeiten aus Text A? Wurden Fakten weggelassen oder neue erfunden?
+Antworte AUSSCHLIESSLICH mit "TRUE" (wenn alle Fakten exakt erhalten blieben) oder "FALSE" (wenn etwas fehlt oder hinzuerfunden wurde). Keine Erklärungen.
+"""
+
+_CORRECTION_PROMPT = """\
+Deine letzte Transformation war fehlerhaft. Du hast inhaltliche Fakten (Namen, Zahlen, Orte, Zeiten) verändert, weggelassen oder hinzugefügt! Das verletzt die Regel zur Faktentreue.
+
+Hier ist nochmal der Original-Text:
+{text}
+
+Vorgaben: Formalitätslevel {formality}, Bevorzugt: {preferred}, Vermieden: {avoided}.
+
+Transformiere den Text stilistisch, aber behalte JEDEN FAKT und JEDE ZAHL zu 100% bei. Erfinde nichts dazu!
+Antworte AUSSCHLIESSLICH mit dem korrigierten Text, ohne Einleitung oder Erklärung.
+"""
+
+class LLMToneTransformer:
+    """
+    LLM-basierter Ton-Transformer (F10).
+
+    Passt Tonalität und Formulierungsstil mithilfe eines LLM an.
+    Vermeidet grammatikalische Artefakte, die bei regelbasiertem Regex-Ersetzen
+    in stark flektierenden Sprachen (wie Deutsch) entstehen.
+    """
+
+    def __init__(self, llm_adapter: LLMAdapterProtocol) -> None:
+        self._llm = llm_adapter
+
+    def transform(self, text: str, fingerprint: Fingerprint) -> str:
+        rules = fingerprint.layer1
+        
+        preferred = ", ".join(rules.preferred_vocabulary) if rules.preferred_vocabulary else "Keine spezifischen Vorgaben"
+        avoided = ", ".join(rules.avoided_vocabulary) if rules.avoided_vocabulary else "Keine spezifischen Vorgaben"
+
+        current_prompt = _TRANSFORM_PROMPT.format(
+            formality=rules.formality_level,
+            preferred=preferred,
+            avoided=avoided,
+            text=text
+        )
+        
+        max_attempts = 2
+        
+        for attempt in range(max_attempts):
+            try:
+                # 1. Transformation durchführen
+                result = self._llm.complete([{"role": "user", "content": current_prompt}]).strip()
+                
+                # 2. Entity-Check (Validierung) durchführen
+                val_prompt = _VALIDATION_PROMPT.format(original=text, transformed=result)
+                val_response = self._llm.complete([{"role": "user", "content": val_prompt}]).strip().upper()
+                
+                if "TRUE" in val_response and "FALSE" not in val_response:
+                    return result  # Fakten blieben erhalten -> Erfolgreich!
+                
+                logger.warning("Transformer Entity-Check fehlgeschlagen (Versuch %d/%d).", attempt + 1, max_attempts)
+                
+                # 3. Für den nächsten Versuch den strengeren Korrektur-Prompt laden
+                current_prompt = _CORRECTION_PROMPT.format(
+                    formality=rules.formality_level,
+                    preferred=preferred,
+                    avoided=avoided,
+                    text=text
+                )
+                
+            except Exception as exc:
+                logger.error("LLMToneTransformer fehlgeschlagen: %s. Gebe Original-Text zurück.", exc)
+                return text
+                
+        logger.error("Transformer konnte Faktentreue nicht sicherstellen. Fallback auf Original-Text.")
+        return text
 
 # ---------------------------------------------------------------------------
 # Bekannte informelle Füllwörter → Ersatz (leer = Wort entfernen)

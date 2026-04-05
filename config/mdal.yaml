@@ -4,8 +4,8 @@
 
 llm:
   url: "http://localhost:11434"   # Ollama default; oder OpenAI-kompatibler Endpunkt
-  model: "llama3.2"
-  timeout: 60
+  model: "mistral:latest"
+  timeout: 120
   # api_key: "sk-..."             # Optional — für kommerzielle APIs
 
 embedding:

@@ -30,7 +30,7 @@ from mdal.pipeline import PipelineOrchestrator
 from mdal.plugins.registry import PluginRegistry
 from mdal.retry import RetryController
 from mdal.status import LoggingStatusReporter
-from mdal.transformer import RuleBasedToneTransformer
+from mdal.transformer import LLMToneTransformer
 from mdal.verification.engine import VerificationEngine
 from mdal.verification.semantic.layer1 import Layer1RuleChecker
 from mdal.verification.semantic.layer2 import Layer2EmbeddingChecker
@@ -83,7 +83,8 @@ def build_pipeline(config: MDALConfig) -> PipelineOrchestrator:
     # --- Notifier, RetryController, Transformer ---
     notifier    = AdminNotifier(config.notifier)
     retry_ctrl  = RetryController(config.max_retries, notifier)
-    transformer = RuleBasedToneTransformer()
+    transformer = LLMToneTransformer(llm_adapter=llm_adapter)
+
 
     return PipelineOrchestrator(
         llm          = llm_adapter,

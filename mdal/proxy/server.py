@@ -22,10 +22,14 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import traceback
 
 import uvicorn
+from fastapi import Request
+from fastapi.responses import JSONResponse
 
 from mdal.config import ConfigError, load_config, validate_runtime_paths
+from mdal.notifier import AdminNotifier
 from mdal.proxy.app import app
 from mdal.proxy.startup import build_audit_writer, build_pipeline, connectivity_check
 
@@ -68,6 +72,22 @@ def main() -> None:
     app.state.pipeline         = pipeline
     app.state.audit            = audit
     app.state.default_language = config.language
+
+    # F4/F11: Globaler Exception-Handler für technische Abstürze
+    notifier = AdminNotifier(config.notifier)
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.error("Unbehandelter technischer Fehler: %s", exc, exc_info=True)
+        notifier.notify_technical_crash(
+            error=type(exc).__name__,
+            details=str(exc),
+            traceback_str=traceback.format_exc(),
+        )
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Service Unavailable (Technical Error)"}
+        )
 
     host = os.environ.get("MDAL_HOST", "0.0.0.0")
     port = int(os.environ.get("MDAL_PORT", "8080"))
