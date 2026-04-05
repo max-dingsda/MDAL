@@ -9,7 +9,7 @@ Das Projekt implementiert einen **Model-agnostic Delivery Assurance Layer** zwis
 3. MDAL prüft den vollständigen LLM Output.
 4. MDAL entscheidet zwischen:
    - direkt ausgeben
-   - regelbasiert transformieren
+   - via LLM transformieren (inkl. Faktencheck und Confidence Scoring)
    - erneuten LLM-Refinement-Call auslösen
 5. Bei ausgeschöpftem Retry-Limit wird **kein Output** an den Client ausgeliefert.
 
@@ -32,8 +32,8 @@ Die Verifikation wird in `mdal/verification/engine.py` orchestriert und kombinie
 - finale Entscheidung via `verification/semantic/scorer.py`
 
 ### 3. Transformation
-`mdal/transformer.py` implementiert eine **regelbasierte** Tonanpassung ohne LLM-Aufruf.  
-Wichtig: Diese Transformation darf Struktur, Reihenfolge und Vollständigkeit nicht verändern.
+`mdal/transformer.py` implementiert eine **LLM-basierte** Tonanpassung (`LLMToneTransformer`).  
+Wichtig: Diese Transformation unterliegt strengen Regeln zur Faktentreue (Entity-Check) und bricht ab, wenn der Text zu stark verändert wird (Confidence Scoring).
 
 ### 4. Retry und Eskalation
 `mdal/retry.py` begrenzt die Anzahl der LLM-Aufrufe und eskaliert nach Erschöpfung des Limits über `mdal/notifier.py`.
@@ -51,7 +51,7 @@ flowchart LR
     O --> L[LLM Adapter]
     O --> F[FingerprintStore]
     O --> V[VerificationEngine]
-    O --> T[RuleBasedToneTransformer]
+    O --> T[LLMToneTransformer]
     O --> R[RetryController]
 
     V --> ST[StructureChecker]
@@ -68,7 +68,8 @@ flowchart LR
 
 - **kein stiller Bypass:** unvollständige Konfiguration stoppt den Betrieb
 - **kein Streaming im Prüfkern:** MDAL verarbeitet nur vollständige Outputs
-- **kein inhaltliches Umschreiben im Transformer:** nur Tonanpassung
+- **Qualität vor Stil:** Faktentreue und Grammatik stehen zwingend über stilistischer Perfektion
+- **Hard Language Lock:** Sprachwechsel (Sprach-Drift) werden hart blockiert
 - **Fingerprint versioniert pro Sprache**
 - **Layer 3 nur bei Grenzfällen**
 - **Proxy ist OpenAI-kompatibel statt client-spezifisch**

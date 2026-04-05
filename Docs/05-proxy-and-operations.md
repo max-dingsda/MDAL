@@ -59,7 +59,7 @@ Diese Factory verdrahtet:
 - VerificationEngine
 - AdminNotifier
 - RetryController
-- RuleBasedToneTransformer
+- LLMToneTransformer
 - PipelineOrchestrator
 
 Das Modul ist damit die zentrale technische Montage-Stelle des Systems.

@@ -65,7 +65,7 @@ Ephemerer Session-Kontext für einen Request-/Session-Lauf.
 Definiert Statusmeldungen und Reporter-Implementierungen, z. B. Queue-/Logging-basierte Reporter.
 
 ### `mdal/transformer.py`
-Regelbasierter Tone-Transformer ohne LLM-Aufruf.
+LLM-basierter Tone-Transformer inkl. Confidence-Scoring und Faktentreue-Prüfung.
 
 ---
 
