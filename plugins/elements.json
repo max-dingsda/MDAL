@@ -1,0 +1,15 @@
+{
+  "allowed_tags": [
+    "model",
+    "name",
+    "folder",
+    "element",
+    "relationship",
+    "metadata",
+    "schema",
+    "schemaversion",
+    "dc:title",
+    "dc:creator",
+    "dc:date"
+  ]
+}

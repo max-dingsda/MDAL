@@ -1,0 +1,6 @@
+[
+  "Generiere ausschließlich ein valides JSON-Objekt für einen Server mit den Feldern 'hostname', 'ip' und 'role'. Kein weiterer Text, kein Markdown.",
+  "Generiere ein JSON-Objekt für einen User. Mache aber absichtlich einen Syntaxfehler: Lass die allerletzte schließende geschweifte Klammer '}' am Ende einfach weg! Gib nur den fehlerhaften Text aus.",
+  "Generiere ausschließlich ein valides XML-Dokument für ein Buch mit den Tags <buch>, <titel> und <autor>. Kein Erklärtext.",
+  "Generiere ein kurzes ArchiMate-XML (Version 3.0), das einen Geschäftsprozess 'Kundenbearbeitung' zeigt. Nutze den Namespace 'http://www.opengroup.org/xsd/archimate/3.0/'."
+]

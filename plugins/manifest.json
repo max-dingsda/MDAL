@@ -1,0 +1,11 @@
+{
+  "plugin_id": "archimate-3",
+  "display_name": "ArchiMate 3.0",
+  "version": "3.0",
+  "info": "Dummy-Plugin zur Validierung von ArchiMate XML",
+  "files": ["elements.json"],
+  "matches": {
+    "format": "xml",
+    "namespace": "http://www.opengroup.org/xsd/archimate/3.0/"
+  }
+}
