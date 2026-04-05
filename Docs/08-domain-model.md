@@ -86,25 +86,21 @@ flowchart TD
     M -. liefert .-> E
 ```
 
-## Fachliche Kernaussage
+## Quality Gates & Defensive Strategies
 
-MDAL ist fachlich kein gewöhnlicher Proxy für Modellaufrufe. Die eigentliche Leistung besteht darin, ein instabiles, vom Modell abhängiges Antwortverhalten in einen kontrollierten und bewertbaren Verarbeitungsprozess zu überführen. Der Fingerprint liefert dabei das Referenzniveau für Stil und erwartbares Antwortverhalten. Eine weitergehende fachliche oder formale Validierung erfolgt nur dort, wo passende Prüfplugins vorhanden sind.
+Um MDAL von einer "aggressiven Anpassung" in eine "defensive Normalisierung" ("Demut des Systems") zu überführen, werden drei neue Quality Gates als verbindliche Anforderungen für die Runtime Pipeline verankert:
 
-## Design Principles for Defensive Transformation
+### Säule A: Subject-Guardrail
+* **Anforderung:** Der Transformer muss Topic-Anker aus dem Original-Prompt extrahieren (z.B. "Führungskraft").
+* **Validierung:** MDAL verwirft die Transformation, wenn das Hauptsubjekt im Output durch Begriffe aus dem Profil-Kontext (z.B. "Dienstleister") ersetzt wurde.
 
-Basierend auf den Erkenntnissen der Phase 6 geht MDAL von einer aggressiven Anpassung zu einer defensiven Normalisierung ("Demut des Systems") über. Dabei gelten drei zentrale Säulen:
+### Säule B: Short-Text-Bypass
+* **Anforderung:** Einführung einer automatischen Längenerkennung im MDAL Request.
+* **Logik:** Wenn der Raw-Output < 300 Zeichen ist, werden starre Strukturvorgaben (Einleitung/Fazit) des Fingerprints deaktiviert, um unnötige N/A-Eskalationen zu verhindern.
 
-### Säule A: Schärfung der Transformation (Inhalts-Firewall & Vokabular-Schutz)
-Statt das LLM mit überladenen Negativ-Prompts ("Nutze Begriff X nicht") einzuschränken, wird das Problem der "Context-Leaks" strukturell durch Daten-Trennung gelöst. Der Transformer erhält nur noch Vokabular-Vorgaben, die kontextuell zur erkannten Domäne passen (siehe Säule B). Grammatikalische Korrektheit steht stets vor der Erfüllung einer Stil-Regel.
-
-### Säule B: Domänen-Profile (Request-Tags)
-Ein globaler "One-Size-Fits-All"-Fingerprint führt zu Struktur-Overfit bei abweichenden Texttypen. MDAL ermöglicht Kontextsensitivität durch Domänen-Profile innerhalb eines Fingerprints (z.B. TECHNICAL, BUSINESS, CREATIVE). 
-Um die API OpenAI-kompatibel und für den Client transparent zu halten, erfolgt die Klassifizierung der Domäne dynamisch zur Laufzeit durch eine vorgeschaltete, schnelle LLM-Heuristik auf Basis des eingehenden User-Prompts.
-
-### Säule C: Der "No worse than Raw"-Guardrail
-Jede Transformation durchläuft ein automatisches Qualitäts-Gate zur Sicherung der sprachlichen Integrität. 
-- **Entscheidungslogik:** Die Transformation wird qualitativ abgewogen. Verschlechtert die Transformation die natürliche Lesbarkeit, Grammatik oder Faktentreue drastisch (Kaputtoptimierung), wird die Transformation verworfen. 
-- **Strikte Eskalation (Keine Graceful Degradation):** Gemäß Anforderung F5 wird ein fehlerhafter Raw-Output nicht als Kompromiss durchgelassen. Wenn der Raw-Output das Referenzniveau verfehlt, der Transformer aber keine saubere Korrektur liefern kann, ist das Ergebnis N/A (Retry und anschließende 503-Eskalation). 
+### Säule C: Minimal-Invasive Transformation ("The Demure Mode")
+* **Design-Prinzip:** In den Domänen `CREATIVE` und `DIALOG` wechselt MDAL von "Rewrite" auf "Repair".
+* **Priorisierung:** Grammatikalische Korrektheit hat absoluten Vorrang vor der Stiltreue. Verändere im Zweifel lieber gar nichts am Stil, wenn die Transformation unnatürlich wirkt.
 
 ## Fachliche Kernaussage
 
