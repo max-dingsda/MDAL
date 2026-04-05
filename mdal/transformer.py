@@ -16,6 +16,7 @@ Implementiert ToneTransformerProtocol → Rust-Kern (Zielarchitektur).
 from __future__ import annotations
 
 import re
+import difflib
 import logging
 
 from mdal.fingerprint.models import Fingerprint
@@ -24,17 +25,17 @@ from mdal.interfaces.llm import LLMAdapterProtocol
 logger = logging.getLogger(__name__)
 
 _TRANSFORM_PROMPT = """\
-Deine Aufgabe ist es, die Tonalität des folgenden Textes anzupassen, ohne den inhaltlichen Sinn, die Fakten oder die Struktur zu verändern.
+Deine Aufgabe ist es, einen Text anzupassen. Dabei gilt folgende STRIKTE Priorität (wichtigste zuerst):
 
-Vorgaben:
+1. SPRACHQUALITÄT: Die Grammatik muss einwandfrei, flüssig und natürlich sein. (Fremdsprachliche Fachbegriffe z.B. aus der IT sind erlaubt und kein Fehler).
+2. FAKTENTREUE: Alle Fakten, Zahlen, Entitäten und Sinnzusammenhänge aus dem Original-Text MÜSSEN exakt erhalten bleiben. Erfinde nichts dazu, lasse nichts weg. Behalte Listen und Reihenfolgen exakt bei.
+3. STIL-ANPASSUNG: Passe den Text (nur soweit unter strikter Beachtung von Priorität 1 und 2 möglich!) an folgende Stil-Vorgaben an.
+
+Vorgaben (für Priorität 3):
 - Formalitätslevel: {formality} (1=sehr informell, 5=sehr formal/akademisch)
 - Bevorzugtes Vokabular: {preferred}
 - Vermiedenes Vokabular: {avoided}
 
-WICHTIG (F10 & Semantische Integrität):
-- Verändere keine Fakten, Zahlen, Eigennamen oder Zeiten.
-- Behalte Listen, Aufzählungen und die Reihenfolge der Aussagen exakt bei.
-- Verschlechtere niemals die Grammatik oder Rechtschreibung!
 - Antworte AUSSCHLIESSLICH mit dem transformierten Text, ohne Einleitung oder Erklärung.
 
 Original-Text:
@@ -98,6 +99,13 @@ class LLMToneTransformer:
                 # 1. Transformation durchführen
                 result = self._llm.complete([{"role": "user", "content": current_prompt}]).strip()
                 
+                # F10: Confidence Scoring (Schutz vor Kaputtoptimierung)
+                # Wenn mehr als 30% des Textes verändert wurden, greift die "Demut"-Regel.
+                ratio = difflib.SequenceMatcher(None, text.split(), result.split()).ratio()
+                if ratio < 0.70:
+                    logger.warning("Transformer Confidence Score zu niedrig (Ratio: %.2f). Transformation verworfen (Demut).", ratio)
+                    return text
+
                 # 2. Entity-Check (Validierung) durchführen
                 val_prompt = _VALIDATION_PROMPT.format(original=text, transformed=result)
                 val_response = self._llm.complete([{"role": "user", "content": val_prompt}]).strip().upper()

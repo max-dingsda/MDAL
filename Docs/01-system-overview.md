@@ -6,7 +6,7 @@ Das Projekt implementiert einen **Model-agnostic Delivery Assurance Layer** zwis
 
 1. Client liefert Chat-Nachrichten.
 2. MDAL ruft ein LLM auf.
-3. MDAL prüft den vollständigen Output.
+3. MDAL prüft den vollständigen LLM Output.
 4. MDAL entscheidet zwischen:
    - direkt ausgeben
    - regelbasiert transformieren

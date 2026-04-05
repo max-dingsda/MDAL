@@ -20,10 +20,17 @@ Fehlerbehandlung:
 
 from __future__ import annotations
 
+import re
+
+try:
+    from langdetect import detect, LangDetectException
+except ImportError:
+    detect = None
+
 from mdal.fingerprint.models import Fingerprint
 from mdal.fingerprint.store import FingerprintStore
 from mdal.interfaces.llm import LLMAdapterProtocol
-from mdal.retry import RetryController
+from mdal.retry import RetryController, RetryLimitError
 from mdal.session import SessionContext
 from mdal.status import QueueStatusReporter, StatusMessage, StatusReporter
 from mdal.transformer import LLMToneTransformer
@@ -128,6 +135,22 @@ class PipelineOrchestrator:
 
         def verify(output: str, ctx: SessionContext) -> VerificationResult:
             self._status.report(StatusMessage.CHECKING)
+            
+            # F8: Hard Language Lock (Sprach-Drift hart blockieren)
+            if detect is not None and len(output.split()) > 10:
+                try:
+                    detected_lang = detect(output)
+                    if not language.startswith(detected_lang):
+                        error_msg = f"Sprach-Drift (F8): Erwartet '{language}', aber '{detected_lang}' generiert."
+                        self._retry._notifier.notify_escalation(
+                            session_id=ctx.session_id,
+                            retry_count=self._retry._max,
+                            last_error=error_msg,
+                        )
+                        raise RetryLimitError(ctx.session_id, self._retry._max)
+                except LangDetectException:
+                    pass  # Zu kurz oder unklar für Spracherkennung
+            
             return self._verification.verify(output, fingerprint, ctx)
 
         def do_transform(output: str) -> str:
@@ -143,4 +166,27 @@ class PipelineOrchestrator:
         )
 
         self._status.report(StatusMessage.READY)
-        return final_output
+        
+        # F21: Post-Processing Filter anwenden
+        return _post_process(final_output)
+
+
+# ---------------------------------------------------------------------------
+# Post-Processing
+# ---------------------------------------------------------------------------
+
+def _post_process(text: str) -> str:
+    """
+    F21: Entfernt generierte Meta-Kommentare und LLM-Einleitungen vor der Auslieferung.
+    """
+    # Entfernt typische LLM-Prologe wie "Hier ist die angepasste Version:"
+    text = re.sub(
+        r"^(?:Hier ist|Dies ist|Anbei)(?: eine| die)? (?:angepasste|überarbeitete|korrigierte) (?:Version|Antwort|Fassung).*?:\s*\n*",
+        "", text, flags=re.IGNORECASE
+    )
+    # Entfernt Klammer-Kommentare wie (Hier ist der Text) am Anfang oder Ende
+    text = re.sub(
+        r"^\s*[\(\[].*(?:angepasst|transformiert|Version|Hier ist|überarbeitet|korrigiert).*?[\)\]]\s*\n?",
+        "", text, flags=re.IGNORECASE | re.MULTILINE
+    )
+    return text.strip()
