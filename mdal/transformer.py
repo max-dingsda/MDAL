@@ -27,13 +27,16 @@ logger = logging.getLogger(__name__)
 _TRANSFORM_PROMPT = """\
 Deine Aufgabe ist es, einen Text anzupassen. Dabei gilt folgende STRIKTE Priorität (wichtigste zuerst):
 
-1. SPRACHQUALITÄT: Die Grammatik muss einwandfrei, flüssig und natürlich sein. (Fremdsprachliche Fachbegriffe z.B. aus der IT sind erlaubt und kein Fehler).
+1. SPRACHQUALITÄT: Die Grammatik muss einwandfrei, flüssig und natürlich sein. Erfinde KEINE neuen Wörter oder unnatürlichen Komposita (Neologismen). Fremdsprachliche Fachbegriffe z.B. aus der IT sind erlaubt.
 2. FAKTENTREUE: Alle Fakten, Zahlen, Entitäten und Sinnzusammenhänge aus dem Original-Text MÜSSEN exakt erhalten bleiben. Erfinde nichts dazu, lasse nichts weg. Behalte Listen und Reihenfolgen exakt bei.
-3. STIL-ANPASSUNG: Passe den Text (nur soweit unter strikter Beachtung von Priorität 1 und 2 möglich!) an folgende Stil-Vorgaben an.
+3. STIL-ANPASSUNG: Passe den Text an folgende Stil-Vorgaben an, ABER NUR, wenn es Priorität 1 und 2 nicht verletzt!
+
+ERKANNTE TEXT-DOMÄNE: {domain}
+(WICHTIG: Wenn die Domäne TECHNICAL oder CREATIVE ist, VERWENDE AUF KEINEN FALL deplatzierte Business-Begriffe wie "Dienstleister" oder "Vertragsverhandlung" in deinen Anpassungen!)
 
 Vorgaben (für Priorität 3):
 - Formalitätslevel: {formality} (1=sehr informell, 5=sehr formal/akademisch)
-- Bevorzugtes Vokabular: {preferred}
+- Bevorzugtes Vokabular: {preferred} (WICHTIG: Verwende diese Wörter NUR, wenn sie inhaltlich zum Thema passen! Zwinge sie nicht in sachfremde Themen!)
 - Vermiedenes Vokabular: {avoided}
 
 - Antworte AUSSCHLIESSLICH mit dem transformierten Text, ohne Einleitung oder Erklärung.
@@ -51,14 +54,14 @@ Text A (Original):
 Text B (Transformiert):
 {transformed}
 
-Prüfe STRENG: Enthält Text B noch alle Fakten, Zahlen, Eigennamen, Orte und Zeiten aus Text A? Wurden Fakten weggelassen oder neue erfunden?
-Antworte AUSSCHLIESSLICH mit "TRUE" (wenn alle Fakten exakt erhalten blieben) oder "FALSE" (wenn etwas fehlt oder hinzuerfunden wurde). Keine Erklärungen.
+Prüfe STRENG:
+1. Enthält Text B noch alle Fakten, Zahlen, Eigennamen, Orte und Zeiten aus Text A?
+2. Ist die Sprache in Text B natürlich und enthält KEINE erfundenen Wörter (Neologismen) oder völlig deplatzierte Vokabeln (Context-Leak)?
+Antworte AUSSCHLIESSLICH mit "TRUE" (wenn Fakten da sind UND Grammatik perfekt ist) oder "FALSE" (wenn etwas fehlt, erfunden wurde oder unnatürlich ist). Keine Erklärungen.
 """
 
 _CORRECTION_PROMPT = """\
-Deine letzte Transformation war fehlerhaft. Du hast inhaltliche Fakten (Namen, Zahlen, Orte, Zeiten) verändert, weggelassen oder hinzugefügt! Das verletzt die Regel zur Faktentreue.
-
-Hier ist nochmal der Original-Text:
+Deine letzte Transformation war fehlerhaft (Fakten verändert, unnatürliche Grammatik/Neologismen, oder deplatziertes Vokabular). Hier ist nochmal der Original-Text:
 {text}
 
 Vorgaben: Formalitätslevel {formality}, Bevorzugt: {preferred}, Vermieden: {avoided}.
@@ -79,13 +82,14 @@ class LLMToneTransformer:
     def __init__(self, llm_adapter: LLMAdapterProtocol) -> None:
         self._llm = llm_adapter
 
-    def transform(self, text: str, fingerprint: Fingerprint) -> str:
+    def transform(self, text: str, fingerprint: Fingerprint, domain: str = "DEFAULT") -> str:
         rules = fingerprint.layer1
         
         preferred = ", ".join(rules.preferred_vocabulary) if rules.preferred_vocabulary else "Keine spezifischen Vorgaben"
         avoided = ", ".join(rules.avoided_vocabulary) if rules.avoided_vocabulary else "Keine spezifischen Vorgaben"
 
         current_prompt = _TRANSFORM_PROMPT.format(
+            domain=domain,
             formality=rules.formality_level,
             preferred=preferred,
             avoided=avoided,
@@ -175,7 +179,7 @@ class RuleBasedToneTransformer:
     Implementiert ToneTransformerProtocol.
     """
 
-    def transform(self, text: str, fingerprint: Fingerprint) -> str:
+    def transform(self, text: str, fingerprint: Fingerprint, domain: str = "DEFAULT") -> str:
         """
         Transformiert den Ton des Textes anhand des Fingerprints.
 

@@ -50,6 +50,7 @@ class AdminNotifier:
 
         Wird aufgerufen bevor RetryLimitError geworfen wird.
         """
+        logger.error("🛑 Fachliche Eskalation (503) - Abbruch nach %d Versuchen: %s", retry_count, last_error)
         self._notify("escalation", {
             "session_id":  session_id,
             "retry_count": retry_count,
@@ -68,6 +69,7 @@ class AdminNotifier:
         Hinweis für den Admin: Fingerprint ggf. neu kalibrieren oder
         Modell austauschen.
         """
+        logger.warning("⚠️ Fähigkeits-Asymmetrie erkannt (Sprache: %s): %s", language, details)
         self._notify("capability_asymmetry", {
             "session_id": session_id,
             "language":   language,
@@ -79,6 +81,7 @@ class AdminNotifier:
         F4/F11: Unbehandelter technischer Absturz (z.B. Timeout, interner Bug).
         Wird vom globalen Exception-Handler aufgerufen, um Silent Fails zu verhindern.
         """
+        # Der technische Absturz wird im server.py bereits per logger.error inkl. Traceback geloggt.
         self._notify("technical_crash", {
             "error":     error,
             "details":   details,

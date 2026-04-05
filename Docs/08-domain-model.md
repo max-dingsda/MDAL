@@ -89,3 +89,23 @@ flowchart TD
 ## Fachliche Kernaussage
 
 MDAL ist fachlich kein gewöhnlicher Proxy für Modellaufrufe. Die eigentliche Leistung besteht darin, ein instabiles, vom Modell abhängiges Antwortverhalten in einen kontrollierten und bewertbaren Verarbeitungsprozess zu überführen. Der Fingerprint liefert dabei das Referenzniveau für Stil und erwartbares Antwortverhalten. Eine weitergehende fachliche oder formale Validierung erfolgt nur dort, wo passende Prüfplugins vorhanden sind.
+
+## Design Principles for Defensive Transformation
+
+Basierend auf den Erkenntnissen der Phase 6 geht MDAL von einer aggressiven Anpassung zu einer defensiven Normalisierung ("Demut des Systems") über. Dabei gelten drei zentrale Säulen:
+
+### Säule A: Schärfung der Transformation (Inhalts-Firewall & Vokabular-Schutz)
+Statt das LLM mit überladenen Negativ-Prompts ("Nutze Begriff X nicht") einzuschränken, wird das Problem der "Context-Leaks" strukturell durch Daten-Trennung gelöst. Der Transformer erhält nur noch Vokabular-Vorgaben, die kontextuell zur erkannten Domäne passen (siehe Säule B). Grammatikalische Korrektheit steht stets vor der Erfüllung einer Stil-Regel.
+
+### Säule B: Domänen-Profile (Request-Tags)
+Ein globaler "One-Size-Fits-All"-Fingerprint führt zu Struktur-Overfit bei abweichenden Texttypen. MDAL ermöglicht Kontextsensitivität durch Domänen-Profile innerhalb eines Fingerprints (z.B. TECHNICAL, BUSINESS, CREATIVE). 
+Um die API OpenAI-kompatibel und für den Client transparent zu halten, erfolgt die Klassifizierung der Domäne dynamisch zur Laufzeit durch eine vorgeschaltete, schnelle LLM-Heuristik auf Basis des eingehenden User-Prompts.
+
+### Säule C: Der "No worse than Raw"-Guardrail
+Jede Transformation durchläuft ein automatisches Qualitäts-Gate zur Sicherung der sprachlichen Integrität. 
+- **Entscheidungslogik:** Die Transformation wird qualitativ abgewogen. Verschlechtert die Transformation die natürliche Lesbarkeit, Grammatik oder Faktentreue drastisch (Kaputtoptimierung), wird die Transformation verworfen. 
+- **Strikte Eskalation (Keine Graceful Degradation):** Gemäß Anforderung F5 wird ein fehlerhafter Raw-Output nicht als Kompromiss durchgelassen. Wenn der Raw-Output das Referenzniveau verfehlt, der Transformer aber keine saubere Korrektur liefern kann, ist das Ergebnis N/A (Retry und anschließende 503-Eskalation). 
+
+## Fachliche Kernaussage
+
+MDAL ist fachlich kein gewöhnlicher Proxy für Modellaufrufe. Die eigentliche Leistung besteht darin, ein instabiles, vom Modell abhängiges Antwortverhalten in einen kontrollierten und bewertbaren Verarbeitungsprozess zu überführen. Der Fingerprint liefert dabei das Referenzniveau für Stil und erwartbares Antwortverhalten. Eine weitergehende fachliche oder formale Validierung erfolgt nur dort, wo passende Prüfplugins vorhanden sind.

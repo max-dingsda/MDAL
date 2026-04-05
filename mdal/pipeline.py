@@ -20,6 +20,7 @@ Fehlerbehandlung:
 
 from __future__ import annotations
 
+import logging
 import re
 
 try:
@@ -35,6 +36,8 @@ from mdal.session import SessionContext
 from mdal.status import QueueStatusReporter, StatusMessage, StatusReporter
 from mdal.transformer import LLMToneTransformer
 from mdal.verification.engine import VerificationEngine, VerificationResult
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Refinement-Prompt
@@ -65,6 +68,37 @@ def _build_refinement_messages(
         },
     ]
 
+# ---------------------------------------------------------------------------
+# Domänen-Klassifizierung (Säule B)
+# ---------------------------------------------------------------------------
+
+_DOMAIN_PROMPT = """\
+Analysiere die folgende Benutzeranfrage und ordne sie exakt einer der folgenden Domänen zu:
+- TECHNICAL: Technische Erklärungen, IT-Architektur, Programmierung.
+- BUSINESS: Formelle geschäftliche E-Mails, Vorstandspräsentationen, Mahnungen.
+- CREATIVE: Storytelling, Prosa, bildhafte Beschreibungen, lockere Dialoge.
+- SHORT_COPY: Sehr kurze Anfragen, Slogans, Social Media (unter 3 Sätze erwartet).
+- DEFAULT: Alles andere, Smalltalk, allgemeine Fragen.
+
+Antworte AUSSCHLIESSLICH mit exakt einem dieser 5 Begriffe (TECHNICAL, BUSINESS, CREATIVE, SHORT_COPY, DEFAULT). Keine Erklärungen!
+
+Benutzeranfrage:
+{prompt}
+"""
+
+def _classify_domain(messages: list[dict], llm: LLMAdapterProtocol) -> str:
+    user_msgs = [m["content"] for m in messages if m["role"] == "user"]
+    if not user_msgs:
+        return "DEFAULT"
+    prompt = _DOMAIN_PROMPT.format(prompt=user_msgs[-1][:1000])
+    try:
+        res = llm.complete([{"role": "user", "content": prompt}]).strip().upper()
+        for d in ["TECHNICAL", "BUSINESS", "CREATIVE", "SHORT_COPY"]:
+            if d in res:
+                return d
+        return "DEFAULT"
+    except Exception:
+        return "DEFAULT"
 
 # ---------------------------------------------------------------------------
 # Pipeline-Orchestrator
@@ -119,6 +153,9 @@ class PipelineOrchestrator:
         """
         self._status.report(StatusMessage.PROCESSING)
 
+        domain = _classify_domain(messages, self._llm)
+        logger.info("Säule B: Erkannte Text-Domäne für Request: %s", domain)
+
         fingerprint = self._store.load_current(language)
         version     = self._store.current_version(language) or 0
         context     = SessionContext(language=language, fingerprint_version=version)
@@ -155,7 +192,7 @@ class PipelineOrchestrator:
 
         def do_transform(output: str) -> str:
             self._status.report(StatusMessage.ADJUSTING)
-            return self._transformer.transform(output, fingerprint)
+            return self._transformer.transform(output, fingerprint, domain)
 
         final_output = self._retry.run(
             context      = context,

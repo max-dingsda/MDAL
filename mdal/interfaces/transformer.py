@@ -28,5 +28,5 @@ class ToneTransformerProtocol(Protocol):
     - Nur Tonalität, Formalitätsniveau und Formulierungsstil werden angepasst
     """
 
-    def transform(self, text: str, fingerprint: Fingerprint) -> str:
+    def transform(self, text: str, fingerprint: Fingerprint, domain: str = "DEFAULT") -> str:
         ...
