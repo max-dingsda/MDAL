@@ -1,9 +1,9 @@
 """
-MDAL Konfiguration — Laden, Validieren, Betriebsbereitschaft prüfen (F11).
+MDAL configuration — loading, validation, and operational readiness check (F11).
 
-Das System darf nur in vollständig konfiguriertem Zustand betrieben werden.
-Ein unvollständiges Setup führt zu einer Fehlermeldung und verhindert den Betrieb.
-Stiller Durchleitungsmodus ist nicht vorgesehen.
+The system may only be operated in a fully configured state.
+An incomplete setup raises an error and prevents operation.
+Silent passthrough mode is not provided.
 """
 
 from __future__ import annotations
@@ -37,10 +37,10 @@ class AuditConfig(BaseModel):
     @model_validator(mode="after")
     def _require_target_params(self) -> AuditConfig:
         if self.target == "file" and not self.path:
-            raise ValueError("audit.target = 'file' erfordert audit.path")
+            raise ValueError("audit.target = 'file' requires audit.path")
         if self.target in ("postgresql", "mysql", "mssql") and not self.connection_string:
             raise ValueError(
-                f"audit.target = '{self.target}' erfordert audit.connection_string"
+                f"audit.target = '{self.target}' requires audit.connection_string"
             )
         return self
 
@@ -51,11 +51,11 @@ class ChecksConfig(BaseModel):
 
     @model_validator(mode="after")
     def _at_least_one_active(self) -> ChecksConfig:
-        # F18: Abschaltung aller Prüfungen gleichzeitig ist nicht zulässig.
+        # F18: disabling all checks simultaneously is not permitted.
         if not self.semantic and not self.structure:
             raise ValueError(
-                "Mindestens eine Prüfung muss aktiv sein (F18). "
-                "checks.semantic und checks.structure dürfen nicht gleichzeitig false sein."
+                "At least one check must be active (F18). "
+                "checks.semantic and checks.structure must not both be false."
             )
         return self
 
@@ -73,17 +73,17 @@ class MDALConfig(BaseModel):
     audit:                 AuditConfig
     checks:                ChecksConfig      = Field(default_factory=ChecksConfig)
     notifier:              NotifierConfig    = Field(default_factory=NotifierConfig)
-    language:              str               = "de"    # Standard-Sprache für Fingerprint-Lookup
+    language:              str               = "de"    # default language for fingerprint lookup
     fallback_llm:          LLMConfig | None  = None   # F9
-    max_retries:           int               = 2       # F5: max 3 Versuche gesamt (1 initial + 2 Refinements)
+    max_retries:           int               = 2       # F5: max 3 attempts total (1 initial + 2 refinements)
 
     @model_validator(mode="after")
     def _validate_completeness(self) -> MDALConfig:
-        # F11: Das System muss vollständig konfiguriert sein.
-        # Hier prüfen wir strukturelle Vollständigkeit der Config.
-        # Die Existenz von Pfaden wird beim Start des Systems geprüft (mdal.startup).
+        # F11: the system must be fully configured.
+        # Here we check structural completeness of the config.
+        # Path existence is verified at system startup (mdal.startup).
         if self.max_retries < 1:
-            raise ValueError("max_retries muss mindestens 1 sein")
+            raise ValueError("max_retries must be at least 1")
         return self
 
 
@@ -92,62 +92,62 @@ class MDALConfig(BaseModel):
 # ---------------------------------------------------------------------------
 
 class ConfigError(Exception):
-    """Wird geworfen wenn die Config unvollständig oder ungültig ist (F11)."""
+    """Raised when the config is incomplete or invalid (F11)."""
 
 
 def load_config(path: str | Path) -> MDALConfig:
     """
-    Lädt und validiert die MDAL-Konfiguration aus einer YAML-Datei.
+    Loads and validates the MDAL configuration from a YAML file.
 
-    Wirft ConfigError wenn:
-    - Die Datei nicht gefunden wird
-    - Pflichtfelder fehlen
-    - Die Konfiguration F11 oder F18 verletzt
+    Raises ConfigError when:
+    - the file is not found
+    - required fields are missing
+    - the configuration violates F11 or F18
 
-    Ein unvollständiges Setup führt zu Betriebsstopp — kein stiller Fallback.
+    An incomplete setup causes an operational stop — no silent fallback.
     """
     path = Path(path)
     if not path.exists():
-        raise ConfigError(f"Konfigurationsdatei nicht gefunden: {path}")
+        raise ConfigError(f"Configuration file not found: {path}")
 
     try:
         with path.open(encoding="utf-8") as f:
             raw = yaml.safe_load(f)
     except yaml.YAMLError as exc:
-        raise ConfigError(f"Ungültiges YAML in {path}: {exc}") from exc
+        raise ConfigError(f"Invalid YAML in {path}: {exc}") from exc
 
     if not isinstance(raw, dict):
-        raise ConfigError(f"Konfigurationsdatei ist leer oder kein Mapping: {path}")
+        raise ConfigError(f"Configuration file is empty or not a mapping: {path}")
 
     try:
         return MDALConfig(**raw)
     except Exception as exc:
-        raise ConfigError(f"Konfigurationsfehler: {exc}") from exc
+        raise ConfigError(f"Configuration error: {exc}") from exc
 
 
 def validate_runtime_paths(config: MDALConfig) -> None:
     """
-    Prüft zur Laufzeit ob konfigurierte Pfade tatsächlich existieren.
-    Wird beim Systemstart aufgerufen — nicht beim Config-Laden.
-    Trennung ermöglicht Unit-Tests ohne Dateisystem-Setup.
+    Verifies at runtime that configured paths actually exist.
+    Called at system startup — not during config loading.
+    Separation enables unit tests without a filesystem setup.
     """
     errors: list[str] = []
 
     fingerprint = Path(config.fingerprint_path)
     if not fingerprint.exists():
-        errors.append(f"fingerprint_path existiert nicht: {fingerprint}")
+        errors.append(f"fingerprint_path does not exist: {fingerprint}")
 
     registry = Path(config.plugin_registry_path)
     if not registry.exists():
-        errors.append(f"plugin_registry_path existiert nicht: {registry}")
+        errors.append(f"plugin_registry_path does not exist: {registry}")
 
     if config.audit.target == "file" and config.audit.path:
         audit_dir = Path(config.audit.path).parent
         if not audit_dir.exists():
-            # Audit-Verzeichnis wird beim ersten Write angelegt — kein Fehler hier.
+            # Audit directory is created on first write — not an error here.
             pass
 
     if errors:
         raise ConfigError(
-            "System nicht betriebsbereit (F11):\n" + "\n".join(f"  - {e}" for e in errors)
+            "System not operational (F11):\n" + "\n".join(f"  - {e}" for e in errors)
         )

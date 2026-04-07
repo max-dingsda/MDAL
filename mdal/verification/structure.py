@@ -1,17 +1,17 @@
 """
-Strukturprüfung (F2) — zweistufige Validierung strukturierter Outputs.
+Structure check (F2) — two-stage validation of structured outputs.
 
-Ergebnis ist binär: bestanden oder nicht. Keine Teilakzeptanz.
-Eine Zurückweisung enthält einen konkreten Fehlerbericht für das Refinement-Prompt.
+Result is binary: passed or not. No partial acceptance.
+A rejection includes a concrete error report for the refinement prompt.
 
-Stufe 1 — Schema-Validierung (sofern schema.xsd vorhanden):
-  Ist der Output wohlgeformt und strukturell korrekt?
+Stage 1 — Schema validation (if schema.xsd is present):
+  Is the output well-formed and structurally correct?
 
-Stufe 2 — Elementlisten-Validierung (sofern elements.json vorhanden):
-  Sind alle verwendeten Elemente in dieser Version erlaubt?
+Stage 2 — Element list validation (if elements.json is present):
+  Are all used elements permitted in this version?
 
-Mindestens eine der beiden Stufen muss von einem Plugin bereitgestellt werden.
-Prosa-Outputs haben keine Struktur → Strukturprüfung entfällt (F12).
+At least one of the two stages must be provided by a plugin.
+Prose outputs have no structure → structure check is skipped (F12).
 """
 
 from __future__ import annotations
@@ -28,10 +28,10 @@ from mdal.verification.detector import DetectedOutput, OutputFormat, extract_cod
 
 class StructureChecker:
     """
-    Prüft strukturierte Outputs (XML, JSON) gegen Plugin-Schemata.
+    Checks structured outputs (XML, JSON) against plugin schemas.
 
-    Für Prosa-Outputs gibt check() immer passed=True zurück (F12).
-    Für strukturierte Outputs ohne passendes Plugin: nur Wohlgeformtheit.
+    For prose outputs, check() always returns passed=True (F12).
+    For structured outputs without a matching plugin: well-formedness only.
     """
 
     def __init__(self, registry: PluginRegistry) -> None:
@@ -39,10 +39,10 @@ class StructureChecker:
 
     def check(self, output: str, detected: DetectedOutput) -> StructureCheckResult:
         """
-        Prüft den Output anhand des erkannten Formats.
+        Checks the output based on the detected format.
 
-        Prosa → direkt passed.
-        XML/JSON → Plugin suchen, dann validieren.
+        Prose → directly passed.
+        XML/JSON → find plugin, then validate.
         """
         if detected.format == OutputFormat.PROSE:
             return StructureCheckResult(passed=True)
@@ -60,24 +60,24 @@ class StructureChecker:
     # ------------------------------------------------------------------
 
     def _check_xml(self, output: str, detected: DetectedOutput) -> StructureCheckResult:
-        # Plugin per Namespace suchen
+        # Look up plugin by namespace
         plugin: Plugin | None = None
         if detected.xml_namespace:
             plugin = self._registry.find_for_namespace(detected.xml_namespace)
 
-        # Stufe 1: XSD-Validierung
+        # Stage 1: XSD validation
         if plugin and plugin.has_schema:
             result = self._validate_xsd(output, plugin)
             if not result.passed:
                 return result
 
-        # Stufe 2: Elementlisten-Validierung
+        # Stage 2: Element list validation
         if plugin and plugin.has_elements:
             result = self._validate_elements_xml(output, plugin)
             if not result.passed:
                 return result
 
-        # Kein Plugin: nur Wohlgeformtheit prüfen
+        # No plugin: check well-formedness only
         if plugin is None:
             return self._check_xml_wellformed(output)
 
@@ -94,19 +94,19 @@ class StructureChecker:
             errors = "; ".join(str(e) for e in schema.error_log)
             return StructureCheckResult(
                 passed=False,
-                error_report=f"XSD-Validierungsfehler: {errors}",
+                error_report=f"XSD validation error: {errors}",
                 failed_at="xsd",
             )
         except etree.XMLSyntaxError as exc:
             return StructureCheckResult(
                 passed=False,
-                error_report=f"XML nicht wohlgeformt: {exc}",
+                error_report=f"XML not well-formed: {exc}",
                 failed_at="xsd",
             )
         except Exception as exc:
             return StructureCheckResult(
                 passed=False,
-                error_report=f"Schema-Ladefehler ({plugin.plugin_id}): {exc}",
+                error_report=f"Schema load error ({plugin.plugin_id}): {exc}",
                 failed_at="xsd",
             )
 
@@ -127,21 +127,21 @@ class StructureChecker:
                 found_forbidden = used & forbidden
                 if found_forbidden:
                     violations.append(
-                        f"Verbotene Elemente gefunden: {sorted(found_forbidden)}"
+                        f"Forbidden elements found: {sorted(found_forbidden)}"
                     )
 
             if allowed:
                 unknown = used - allowed
                 if unknown:
                     violations.append(
-                        f"Unbekannte Elemente (nicht in elements.json): {sorted(unknown)}"
+                        f"Unknown elements (not in elements.json): {sorted(unknown)}"
                     )
 
             if required:
                 missing = required - used
                 if missing:
                     violations.append(
-                        f"Pflicht-Elemente fehlen: {sorted(missing)}"
+                        f"Required elements missing: {sorted(missing)}"
                     )
 
             if violations:
@@ -155,7 +155,7 @@ class StructureChecker:
         except Exception as exc:
             return StructureCheckResult(
                 passed=False,
-                error_report=f"Elementlisten-Validierung fehlgeschlagen: {exc}",
+                error_report=f"Element list validation failed: {exc}",
                 failed_at="elements",
             )
 
@@ -168,7 +168,7 @@ class StructureChecker:
         except etree.XMLSyntaxError as exc:
             return StructureCheckResult(
                 passed=False,
-                error_report=f"XML nicht wohlgeformt: {exc}",
+                error_report=f"XML not well-formed: {exc}",
                 failed_at="xsd",
             )
 
@@ -177,25 +177,25 @@ class StructureChecker:
     # ------------------------------------------------------------------
 
     def _check_json(self, output: str, detected: DetectedOutput) -> StructureCheckResult:
-        # JSON ist bereits geparst worden (detect_format hat json.loads aufgerufen)
-        # Hier: Plugin für JSON suchen
+        # JSON was already parsed (detect_format called json.loads)
+        # Here: find a plugin for JSON
         json_plugins = self._registry.find_for_format("json")
 
-        # Für den PoC: erstes passendes JSON-Plugin nehmen
-        # (Erweiterungspunkt: Schema-matching über $schema-Key oder Content-Analyse)
+        # For the PoC: use the first matching JSON plugin
+        # (extension point: schema matching via $schema key or content analysis)
         plugin: Plugin | None = json_plugins[0] if json_plugins else None
 
         if plugin and plugin.has_elements:
             return self._validate_elements_json(output, plugin)
 
-        # Keine erweiterte Validierung → wir müssen aber zwingend die Wohlgeformtheit prüfen!
+        # No extended validation → but well-formedness must still be checked
         clean_json = extract_code(output)
         try:
             json.loads(clean_json)
         except json.JSONDecodeError as exc:
             return StructureCheckResult(
                 passed=False,
-                error_report=f"JSON nicht wohlgeformt: {exc}",
+                error_report=f"JSON not well-formed: {exc}",
                 failed_at="json_parsing"
             )
         return StructureCheckResult(passed=True)
@@ -209,18 +209,18 @@ class StructureChecker:
             forbidden: set[str] = set(elements_def.get("forbidden_elements", []))
 
             if not isinstance(data, dict):
-                return StructureCheckResult(passed=True)   # Arrays etc.: kein Key-Check
+                return StructureCheckResult(passed=True)   # Arrays etc.: no key check
 
             top_keys = set(data.keys())
             violations: list[str] = []
 
             found_forbidden = top_keys & forbidden
             if found_forbidden:
-                violations.append(f"Verbotene Keys: {sorted(found_forbidden)}")
+                violations.append(f"Forbidden keys: {sorted(found_forbidden)}")
 
             missing_required = required - top_keys
             if missing_required:
-                violations.append(f"Pflicht-Keys fehlen: {sorted(missing_required)}")
+                violations.append(f"Required keys missing: {sorted(missing_required)}")
 
             if violations:
                 return StructureCheckResult(
@@ -233,6 +233,6 @@ class StructureChecker:
         except Exception as exc:
             return StructureCheckResult(
                 passed=False,
-                error_report=f"JSON-Elementvalidierung fehlgeschlagen: {exc}",
+                error_report=f"JSON element validation failed: {exc}",
                 failed_at="elements",
             )

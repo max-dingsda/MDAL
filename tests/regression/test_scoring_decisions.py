@@ -1,8 +1,8 @@
 """
-Regressions-Tests für das Scoring-Modell.
+Regression tests for the scoring model.
 
-Tabellengetrieben aus scorer_decisions.json — die Entscheidungstabelle
-aus der Architekturskizze darf sich nicht ohne explizite Entscheidung ändern.
+Table-driven from scorer_decisions.json — the decision table
+from the architecture sketch must not change without an explicit decision.
 """
 
 import json
@@ -42,5 +42,5 @@ def test_scoring_decision(case: dict) -> None:
     s2       = CheckResult(level=LEVEL_MAP[case["s2"]])
     expected = DECISION_MAP[case["expected"]]
     assert scorer.decide(s1, s2) == expected, (
-        f"Erwartet {expected} für S1={case['s1']}, S2={case['s2']} — {case['note']}"
+        f"Expected {expected} for S1={case['s1']}, S2={case['s2']} — {case['note']}"
     )

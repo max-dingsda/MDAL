@@ -1,4 +1,4 @@
-"""Unit-Tests für mdal.config — Laden, Validieren, F11, F18."""
+"""Unit tests for mdal.config — loading, validation, F11, F18."""
 
 from pathlib import Path
 
@@ -34,7 +34,7 @@ def write_yaml(tmp_path: Path, data: dict) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Gültige Konfigurationen
+# Valid configurations
 # ---------------------------------------------------------------------------
 
 class TestValidConfig:
@@ -77,7 +77,7 @@ class TestValidConfig:
 
 
 # ---------------------------------------------------------------------------
-# F18 — Beide Prüfungen gleichzeitig deaktiviert ist verboten
+# F18 — Both checks disabled simultaneously is forbidden
 # ---------------------------------------------------------------------------
 
 class TestF18BothChecksDisabled:
@@ -89,7 +89,7 @@ class TestF18BothChecksDisabled:
 
 
 # ---------------------------------------------------------------------------
-# Pflichtfelder fehlen
+# Missing required fields
 # ---------------------------------------------------------------------------
 
 class TestMissingRequiredFields:
@@ -119,7 +119,7 @@ class TestMissingRequiredFields:
 
 
 # ---------------------------------------------------------------------------
-# Audit-Konfiguration
+# Audit configuration
 # ---------------------------------------------------------------------------
 
 class TestAuditConfig:
@@ -146,12 +146,12 @@ class TestAuditConfig:
 
 
 # ---------------------------------------------------------------------------
-# Dateisystem-Fehler
+# Filesystem errors
 # ---------------------------------------------------------------------------
 
 class TestFileErrors:
     def test_missing_config_file_raises(self, tmp_path):
-        with pytest.raises(ConfigError, match="nicht gefunden"):
+        with pytest.raises(ConfigError, match="not found"):
             load_config(tmp_path / "nonexistent.yaml")
 
     def test_invalid_yaml_raises(self, tmp_path):
@@ -209,4 +209,4 @@ class TestValidateRuntimePaths:
         }
         p = write_yaml(tmp_path, data)
         config = load_config(p)
-        validate_runtime_paths(config)   # darf nicht werfen
+        validate_runtime_paths(config)   # must not raise

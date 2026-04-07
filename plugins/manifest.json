@@ -2,7 +2,7 @@
   "plugin_id": "archimate-3",
   "display_name": "ArchiMate 3.0",
   "version": "3.0",
-  "info": "Dummy-Plugin zur Validierung von ArchiMate XML",
+  "info": "Dummy plugin for ArchiMate XML validation",
   "files": ["elements.json"],
   "matches": {
     "format": "xml",

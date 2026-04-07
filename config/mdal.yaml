@@ -1,12 +1,12 @@
-# MDAL — Beispielkonfiguration
-# Kopiere diese Datei nach mdal.yaml und passe sie an.
-# Produktive Configs mit API-Keys nie committen — nutze mdal.local.yaml (in .gitignore).
+# MDAL — Example Configuration
+# Copy this file to mdal.yaml and adjust as needed.
+# Never commit production configs with API keys — use mdal.local.yaml (in .gitignore).
 
 llm:
-  url: "http://localhost:11434"   # Ollama default; oder OpenAI-kompatibler Endpunkt
+  url: "http://localhost:11434"   # Ollama default; or any OpenAI-compatible endpoint
   model: "mistral:latest"
   timeout: 120
-  # api_key: "sk-..."             # Optional — für kommerzielle APIs
+  # api_key: "sk-..."             # Optional — for commercial APIs
 
 embedding:
   url: "http://localhost:11434"
@@ -20,19 +20,19 @@ plugin_registry_path: "./plugins"
 audit:
   target: "file"                  # "file" | "postgresql" | "mysql" | "mssql"
   path: "./audit/mdal.log"
-  # connection_string: "postgresql://user:pass@host/db"   # für DB-Targets
+  # connection_string: "postgresql://user:pass@host/db"   # for DB targets
 
 checks:
   semantic: true
   structure: true
-  # Mindestens eine Prüfung muss aktiv sein (F18).
-  # Beide auf false gleichzeitig ist nicht erlaubt.
+  # At least one check must be active (F18).
+  # Setting both to false simultaneously is not permitted.
 
 notifier:
   log_path: "./logs/escalations.log"
   # webhook_url: "https://example.com/hooks/mdal-escalation"
 
-# Fallback-Modell (F9) — optional
+# Fallback model (F9) — optional
 # fallback_llm:
 #   url: "http://localhost:11434"
 #   model: "gemma2"

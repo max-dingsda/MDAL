@@ -1,93 +1,93 @@
 # Verification
 
-## Ziel der Verification
+## Purpose of Verification
 
-Die Verification in MDAL dient dazu, Modellantworten nicht nur technisch entgegenzunehmen, sondern sie im Rahmen der tatsächlich verfügbaren Prüfbasis einzuordnen. Sie entscheidet also nicht abstrakt über „gut“ oder „schlecht“, sondern darüber, ob ein Ergebnis im jeweiligen Kontext ausreichend belastbar ist.
+Verification in MDAL does not merely receive model responses technically — it evaluates them within the scope of the actually available verification basis. It does not decide abstractly between "good" and "bad", but rather whether a result is sufficiently reliable in a given context.
 
-Wichtig ist die fachliche Abgrenzung:
-- MDAL führt nicht automatisch für jede Antwort eine umfassende qualitative Inhaltsprüfung durch.
-- Bei freier Prosa erfolgt primär eine Stilprüfung gegen das bekannte Referenzniveau.
-- Eine weitergehende fachliche oder formale Validierung ist nur dort möglich, wo ein passendes Prüfplugin oder Schema vorhanden ist.
+An important domain distinction applies:
+- MDAL does not automatically perform a comprehensive qualitative content check for every response.
+- For free-form prose, the primary check is a style evaluation against the known reference level.
+- Further domain-specific or formal validation is only possible where a matching validation plugin or schema is available.
 
-## Verification-Ebenen
+## Verification Layers
 
-### 1. Stilprüfung gegen Referenzniveau
+### 1. Style Check Against Reference Level
 
-Diese Ebene ist der generelle Kern der Verification. Sie bewertet, wie nah eine Antwort am erwarteten Zielverhalten liegt. Typische Aspekte sind:
-- Tonalität
-- Antwortcharakter
-- formale Konsistenz im weiteren Sinn
-- Nähe zum Fingerprint
+This layer is the general core of verification. It evaluates how closely a response matches the expected target behavior. Typical aspects include:
+- tonality
+- response character
+- formal consistency in a broader sense
+- proximity to the fingerprint
 
-Diese Prüfung ist besonders relevant für freie Prosa. Sie dient der Dämpfung von Model-Shift-Effekten und der Stabilisierung des Nutzererlebnisses.
+This check is particularly relevant for free-form prose. It serves to dampen model-shift effects and stabilize the user experience.
 
-### 2. Strukturbezogene Validierung
+### 2. Structure-Oriented Validation
 
-Wenn ein Ergebnis strukturierte Inhalte enthält und ein passendes Plugin vorhanden ist, kann eine zusätzliche Validierung stattfinden. Diese geht über Stilprüfung hinaus und adressiert unter anderem:
-- syntaktische Korrektheit
-- formale Zulässigkeit
-- domänenspezifische Regeln
-- Schema-Konformität
+If a result contains structured content and a matching plugin is available, additional validation may take place. This goes beyond style checking and addresses:
+- syntactic correctness
+- formal permissibility
+- domain-specific rules
+- schema conformance
 
-Ein Beispiel wäre die Validierung eines ArchiMate-XML gegen das passende Schema oder gegen ergänzende Regelwerke.
+An example would be the validation of ArchiMate XML against the appropriate schema or supplementary rule sets.
 
-### 3. Ableitung einer Folgemaßnahme
+### 3. Deriving a Follow-Up Action
 
-Verification endet nicht bei der Feststellung eines Befunds. Sie erzeugt ein auswertbares Ergebnis für die nächste Prozessentscheidung:
-- akzeptieren
-- transformieren
+Verification does not end at a finding. It produces an actionable result for the next process decision:
+- accept
+- transform
 - retry
-- eskalieren
+- escalate
 
-## Warum diese Trennung wichtig ist
+## Why This Distinction Matters
 
-Ohne diese Unterscheidung würde die Doku suggerieren, MDAL könne jede Antwort fachlich umfassend validieren. Genau das wäre zu viel behauptet.
+Without this distinction, the documentation would suggest that MDAL can comprehensively validate every response from a domain perspective. That would be claiming too much.
 
-Die tatsächliche Prüftiefe hängt vom Inhaltstyp ab:
-- **Freie Prosa**: Stilprüfung und ggf. Transformation
-- **Strukturierte Inhalte mit Plugin**: zusätzliche formale oder fachliche Validierung
-- **Strukturierte Inhalte ohne Plugin**: keine belastbare Strukturprüfung möglich
+The actual verification depth depends on the content type:
+- **Free-form prose**: style check and transformation if needed
+- **Structured content with plugin**: additional formal or domain validation
+- **Structured content without plugin**: no reliable structure check possible
 
-Damit ist Verification in MDAL bewusst gestuft statt pauschal.
+Verification in MDAL is therefore deliberately graduated rather than blanket.
 
-## Verification-Ablauf
+## Verification Flow
 
 ```mermaid
 flowchart TD
-    A[Modellantwort] --> B[Einordnung gegen Referenzniveau]
-    B --> C{Freie Prosa?}
+    A[Model Response] --> B[Evaluation Against Reference Level]
+    B --> C{Free-Form Prose?}
 
-    C -- Ja --> D[Stilprüfung]
-    C -- Nein --> E{Passendes Prüfplugin vorhanden?}
+    C -- Yes --> D[Style Check]
+    C -- No --> E{Matching Plugin Available?}
 
-    E -- Ja --> F[Formale / fachliche Validierung]
-    E -- Nein --> G[Begrenzte Aussage über Struktur]
+    E -- Yes --> F[Formal / Domain Validation]
+    E -- No --> G[Limited Statement About Structure]
 
     D --> H[Verification Result]
     F --> H
     G --> H
 
-    H --> I{Folgemaßnahme}
-    I -- akzeptieren --> J[Freigabe]
-    I -- transformieren --> K[Transformation]
-    I -- retry --> L[Neuversuch]
-    I -- eskalieren --> M[Eskalation]
+    H --> I{Follow-Up Action}
+    I -- accept --> J[Release]
+    I -- transform --> K[Transformation]
+    I -- retry --> L[Retry]
+    I -- escalate --> M[Escalation]
 ```
 
 ## Verification Result
 
-Das Verification Result bündelt die Erkenntnisse der Prüfung in einer Form, die für den weiteren Ablauf nutzbar ist. Es kann unter anderem enthalten:
-- Bewertung der Stiltreue
-- Hinweise auf Abweichungen vom Fingerprint
-- Ergebnisse einer Plugin-Validierung
-- Grenzen der Aussagekraft, wenn keine Prüfbasis vorhanden ist
-- empfohlene Folgemaßnahme
+The verification result consolidates the findings in a form usable for subsequent processing. It may contain:
+- style fidelity assessment
+- indications of deviations from the fingerprint
+- results of a plugin validation
+- limits of expressiveness when no verification basis is available
+- recommended follow-up action
 
-## Fachlicher Nutzen
+## Domain Value
 
-Der Nutzen der Verification liegt nicht darin, jede Modellantwort „objektiv“ zu bewerten. Der Nutzen liegt darin, die jeweils real verfügbare Prüftiefe sauber zu operationalisieren und daraus belastbare Prozessentscheidungen abzuleiten.
+The value of verification lies not in "objectively" evaluating every model response. The value lies in cleanly operationalizing the actually available verification depth for each case and deriving reliable process decisions from it.
 
-Dadurch wird vermieden, dass:
-- stilistische Drift unbemerkt bleibt
-- formale Fehler strukturierter Inhalte übersehen werden, wenn eine Prüfbasis vorhanden ist
-- fehlende Prüfbasis fälschlich wie eine bestandene Validierung behandelt wird
+This prevents:
+- stylistic drift going unnoticed
+- formal errors in structured content being overlooked when a verification basis is available
+- a missing verification basis being incorrectly treated as a passed validation

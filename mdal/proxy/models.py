@@ -1,14 +1,13 @@
 """
-OpenAI-kompatible Request/Response-Modelle für den MDAL-Proxy (F19).
+OpenAI-compatible request/response models for the MDAL proxy (F19).
 
-Der Proxy implementiert die OpenAI Chat Completions API-Oberfläche,
-sodass jeder OpenAI-kompatible Client ohne Anpassung gegen MDAL proxied
-werden kann.
+The proxy implements the OpenAI Chat Completions API surface so that
+any OpenAI-compatible client can proxy against MDAL without modification.
 
-Einschränkungen des PoC:
-  - stream=True wird nicht unterstützt (F6: nur vollständige Outputs)
-  - usage-Felder werden auf 0 gesetzt (keine Token-Zählung im Proxy)
-  - function_call / tools werden durchgereicht aber nicht ausgewertet
+PoC limitations:
+  - stream=True is not supported (F6: complete outputs only)
+  - usage fields are set to 0 (no token counting in the proxy)
+  - function_call / tools are passed through but not evaluated
 """
 
 from __future__ import annotations
@@ -25,17 +24,17 @@ from pydantic import BaseModel, Field
 # ---------------------------------------------------------------------------
 
 class ChatMessage(BaseModel):
-    """Einzelne Nachricht im OpenAI-Gesprächsformat."""
+    """A single message in OpenAI conversation format."""
     role:    str
     content: str
 
 
 class ChatCompletionRequest(BaseModel):
     """
-    OpenAI /v1/chat/completions Request-Body.
+    OpenAI /v1/chat/completions request body.
 
-    Felder die MDAL nicht auswertet werden als `extra_fields` durchgereicht
-    (z.B. temperature, max_tokens) und an das Backend-LLM weitergegeben.
+    Fields that MDAL does not evaluate are passed through as `extra_fields`
+    (e.g. temperature, max_tokens) and forwarded to the backend LLM.
     """
     model:    str
     messages: list[ChatMessage]
@@ -44,7 +43,7 @@ class ChatCompletionRequest(BaseModel):
     model_config = {"extra": "allow"}
 
     def messages_as_dicts(self) -> list[dict[str, str]]:
-        """Konvertiert Nachrichten für den LLM-Adapter."""
+        """Converts messages for the LLM adapter."""
         return [{"role": m.role, "content": m.content} for m in self.messages]
 
 
@@ -64,14 +63,14 @@ class ChoiceResponse(BaseModel):
 
 
 class UsageResponse(BaseModel):
-    """Platzhalter — Token-Zählung findet im Proxy nicht statt."""
+    """Placeholder — token counting does not take place in the proxy."""
     prompt_tokens:     int = 0
     completion_tokens: int = 0
     total_tokens:      int = 0
 
 
 class ChatCompletionResponse(BaseModel):
-    """OpenAI-kompatible Antwort-Struktur."""
+    """OpenAI-compatible response structure."""
     id:      str          = Field(default_factory=lambda: f"chatcmpl-{uuid.uuid4().hex[:12]}")
     object:  str          = "chat.completion"
     created: int          = Field(default_factory=lambda: int(time.time()))
@@ -97,7 +96,7 @@ class ErrorDetail(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """OpenAI-kompatibler Fehler-Body."""
+    """OpenAI-compatible error body."""
     error: ErrorDetail
 
     @classmethod

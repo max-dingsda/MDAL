@@ -1,19 +1,19 @@
 """
-Trainer-Komponente (F17) — Offline-Ableitung des Fingerprints aus Chat-Verläufen.
+Trainer component (F17) — Offline derivation of the fingerprint from chat histories.
 
-Kein Bestandteil der Laufzeit-Pipeline — wird bei Ersteinrichtung und bei
-bewusster Weiterentwicklung des Fingerprints (F7) eingesetzt.
+Not part of the runtime pipeline — used during initial setup and when
+intentionally evolving the fingerprint (F7).
 
-Ablauf:
-  1. Chat-Verläufe einlesen
-  2. Assistent-Antworten extrahieren
-  3. Layer 1: LLM extrahiert Stilregeln aus den Antworten
-  4. Layer 2: Embedding-Centroid aus allen Assistent-Antworten berechnen
-  5. Layer 3: LLM selektiert repräsentative Golden Samples
-  6. Fingerprint bauen und im Store speichern
-  7. Rohdaten werden nicht gespeichert (NF3)
+Process:
+  1. Load chat histories
+  2. Extract assistant responses
+  3. Layer 1: LLM extracts style rules from the responses
+  4. Layer 2: Compute embedding centroid from all assistant responses
+  5. Layer 3: LLM selects representative golden samples
+  6. Build fingerprint and save to store
+  7. Raw data is not persisted (NF3)
 
-Das LLM für die Analyse muss nicht identisch mit dem Produktiv-LLM sein.
+The LLM used for analysis does not need to be identical to the production LLM.
 """
 
 from __future__ import annotations
@@ -38,22 +38,22 @@ from mdal.interfaces.llm import LLMAdapterProtocol
 
 logger = logging.getLogger(__name__)
 
-# Anzahl Golden Samples die der Trainer selektiert
+# Number of golden samples selected by the trainer
 DEFAULT_GOLDEN_SAMPLE_COUNT = 5
 
 
 class TrainerError(Exception):
-    """Wird geworfen wenn der Trainer-Lauf fehlschlägt."""
+    """Raised when a trainer run fails."""
 
 
 class Trainer:
     """
-    Offline-Trainer: destilliert aus Chat-Verläufen einen Fingerprint.
+    Offline trainer: distills a fingerprint from chat histories.
 
-    Benötigt:
-      - llm_adapter:       für Stilregel-Extraktion und Sample-Selektion
-      - embedding_adapter: für Layer-2-Embeddings (kann derselbe Endpunkt sein)
-      - store:             Ziel für den fertigen Fingerprint
+    Requires:
+      - llm_adapter:       for style rule extraction and sample selection
+      - embedding_adapter: for Layer 2 embeddings (can be the same endpoint)
+      - store:             target for the completed fingerprint
     """
 
     def __init__(
@@ -71,42 +71,42 @@ class Trainer:
         self._embed_model     = embedding_model_name
 
     # ------------------------------------------------------------------
-    # Haupt-Einstiegspunkt
+    # Main entry point
     # ------------------------------------------------------------------
 
     def run(self, conversations: list[Conversation], language: str) -> int:
         """
-        Führt einen vollständigen Trainer-Lauf durch.
+        Runs a complete trainer pass.
 
-        Gibt die vergebene Fingerprint-Versionsnummer zurück.
-        Rohdaten (Konversationen) liegen nach dem Aufruf nur noch
-        in der Verantwortung des Aufrufers — das System speichert sie nicht.
+        Returns the assigned fingerprint version number.
+        Raw data (conversations) remains solely the caller's responsibility
+        after this call — the system does not store them.
         """
         if not conversations:
-            raise TrainerError("Mindestens eine Konversation erforderlich.")
+            raise TrainerError("At least one conversation is required.")
 
         responses = self._collect_responses(conversations)
         if not responses:
             raise TrainerError(
-                "Keine Assistent-Antworten in den Konversationen gefunden."
+                "No assistant responses found in the conversations."
             )
 
         logger.info(
-            "Trainer: %d Konversationen, %d Assistent-Antworten, Sprache=%s",
+            "Trainer: %d conversations, %d assistant responses, language=%s",
             len(conversations), len(responses), language,
         )
 
-        logger.info("Trainer: Extrahiere Stilregeln (Layer 1) …")
+        logger.info("Trainer: Extracting style rules (Layer 1) …")
         layer1 = self._extract_style_rules(responses, language)
 
-        logger.info("Trainer: Berechne Embedding-Profil (Layer 2) …")
+        logger.info("Trainer: Computing embedding profile (Layer 2) …")
         layer2 = self._compute_embedding_profile(responses)
 
-        logger.info("Trainer: Selektiere Golden Samples (Layer 3) …")
+        logger.info("Trainer: Selecting golden samples (Layer 3) …")
         layer3 = self._select_golden_samples(conversations, language)
 
         fingerprint = Fingerprint(
-            version=0,      # wird vom Store vergeben
+            version=0,      # assigned by the store
             language=language,
             layer1=layer1,
             layer2=layer2,
@@ -114,26 +114,26 @@ class Trainer:
         )
 
         version = self._store.save(fingerprint)
-        logger.info("Trainer: Fingerprint v%d gespeichert.", version)
+        logger.info("Trainer: Fingerprint v%d saved.", version)
         return version
 
     # ------------------------------------------------------------------
-    # Layer 1 — Stilregel-Extraktion via LLM
+    # Layer 1 — Style rule extraction via LLM
     # ------------------------------------------------------------------
 
     def _extract_style_rules(
         self, responses: list[str], language: str
     ) -> StyleRules:
         """
-        Extrahiert Stilregeln via LLM mit bis zu drei Versuchen (CR-Finding #4):
+        Extracts style rules via LLM with up to three attempts (CR-Finding #4):
 
-        1. JSON-Mode des LLM aktivieren (sofern vom Endpunkt unterstützt) — liefert
-           direkt valides JSON ohne Markdown oder Erklärtext.
-        2. Standard-Completion ohne JSON-Mode — funktioniert mit allen Endpunkten.
-        3. Korrektur-Prompt im selben Message-Thread — explizite Aufforderung zur
-           Reparatur der vorigen Antwort.
+        1. JSON mode on the LLM (if supported by the endpoint) — returns
+           valid JSON directly without Markdown or explanatory text.
+        2. Standard completion without JSON mode — works with all endpoints.
+        3. Correction prompt in the same message thread — explicit request to
+           repair the previous response.
 
-        Erst nach Scheitern aller drei Versuche wird TrainerError geworfen.
+        TrainerError is only raised after all three attempts fail.
         """
         sample_text = self._build_response_sample(responses, max_chars=6000)
         prompt = _STYLE_EXTRACTION_PROMPT.format(
@@ -142,7 +142,7 @@ class Trainer:
         )
         messages = [{"role": "user", "content": prompt}]
 
-        # Versuch 1: JSON-Mode (nicht alle Endpunkte unterstützen das)
+        # Attempt 1: JSON mode (not supported by all endpoints)
         try:
             raw = self._llm.complete(
                 messages,
@@ -151,22 +151,22 @@ class Trainer:
             return _parse_style_rules(raw)
         except (LLMResponseError, json.JSONDecodeError, ValueError, KeyError):
             logger.debug(
-                "Layer-1: JSON-Mode nicht unterstützt oder Parsing fehlgeschlagen,"
-                " verwende Standard-Completion."
+                "Layer-1: JSON mode not supported or parsing failed,"
+                " falling back to standard completion."
             )
 
-        # Versuch 2: Standard-Completion
+        # Attempt 2: Standard completion
         raw = self._llm.complete(messages)
         try:
             return _parse_style_rules(raw)
         except (json.JSONDecodeError, ValueError, KeyError):
             logger.warning(
-                "Layer-1: Standard-Completion nicht parsebar, sende Korrektur-Prompt."
+                "Layer-1: Standard completion not parseable, sending correction prompt."
             )
 
-        # Versuch 3: Korrektur-Prompt
-        # Die vorige LLM-Antwort wird gekürzt — sie kann sehr lang sein und würde
-        # zusammen mit dem Original-Prompt das Kontextfenster des LLM sprengen.
+        # Attempt 3: Correction prompt
+        # The previous LLM response is truncated — it can be very long and would
+        # overflow the LLM context window together with the original prompt.
         correction_messages = messages + [
             {"role": "assistant", "content": raw[:800]},
             {"role": "user", "content": _JSON_CORRECTION_PROMPT},
@@ -176,17 +176,17 @@ class Trainer:
             return _parse_style_rules(raw)
         except (json.JSONDecodeError, ValueError, KeyError) as exc:
             raise TrainerError(
-                f"Layer-1-Extraktion nach 3 Versuchen fehlgeschlagen. "
-                f"Letzte LLM-Antwort war:\n{raw[:500]}"
+                f"Layer-1 extraction failed after 3 attempts. "
+                f"Last LLM response was:\n{raw[:500]}"
             ) from exc
 
     # ------------------------------------------------------------------
-    # Layer 2 — Embedding-Profil
+    # Layer 2 — Embedding profile
     # ------------------------------------------------------------------
 
-    # Maximale Zeichenlänge pro Text vor dem Embedding-Aufruf.
-    # nomic-embed-text (BERT-Tokenizer) hat 2048 Token Kontextfenster.
-    # Für deutschen Text ~2 Zeichen/Token → sicheres Limit: 3000 Zeichen.
+    # Maximum character length per text before the embedding call.
+    # nomic-embed-text (BERT tokenizer) has a 2048-token context window.
+    # For German text ~2 chars/token → safe limit: 3000 characters.
     _EMBED_MAX_CHARS: int = 3000
 
     def _compute_embedding_profile(self, responses: list[str]) -> EmbeddingProfile:
@@ -194,7 +194,7 @@ class Trainer:
         embeddings = [self._embed.embed(r) for r in truncated]
 
         if not embeddings:
-            raise TrainerError("Keine Embeddings berechnet.")
+            raise TrainerError("No embeddings computed.")
 
         dimensions = len(embeddings[0])
         centroid = [
@@ -210,7 +210,7 @@ class Trainer:
         )
 
     # ------------------------------------------------------------------
-    # Layer 3 — Golden Sample Selektion
+    # Layer 3 — Golden sample selection
     # ------------------------------------------------------------------
 
     def _select_golden_samples(
@@ -225,10 +225,10 @@ class Trainer:
         if not all_pairs:
             return GoldenSamples(samples=[])
 
-        # Kandidaten für den LLM aufbereiten (begrenzt auf max. 20 Paare)
+        # Prepare candidates for the LLM (limited to max. 20 pairs)
         candidates = all_pairs[: min(len(all_pairs), 20)]
         candidates_text = "\n\n".join(
-            f"[{i+1}] User: {p[0][:300]}\nAssistent: {p[1][:500]}"
+            f"[{i+1}] User: {p[0][:300]}\nAssistant: {p[1][:500]}"
             for i, p in enumerate(candidates)
         )
 
@@ -250,7 +250,7 @@ class Trainer:
                 for i in selected_indices
                 if 0 <= i < len(candidates)
             ]
-            # Fallback: wenn LLM-Selektion fehlschlägt, erste N nehmen
+            # Fallback: if LLM selection fails, take first N
             if not samples:
                 samples = [
                     GoldenSample(prompt=p[0], response=p[1])
@@ -259,8 +259,8 @@ class Trainer:
             return GoldenSamples(samples=samples)
         except Exception as exc:
             logger.warning(
-                "Golden-Sample-Selektion via LLM fehlgeschlagen (%s), "
-                "verwende erste %d Samples.",
+                "Golden sample selection via LLM failed (%s), "
+                "using first %d samples.",
                 exc, self._n_samples,
             )
             return GoldenSamples(
@@ -271,7 +271,7 @@ class Trainer:
             )
 
     # ------------------------------------------------------------------
-    # Hilfsmethoden
+    # Helper methods
     # ------------------------------------------------------------------
 
     @staticmethod
@@ -281,8 +281,8 @@ class Trainer:
     @staticmethod
     def _build_response_sample(responses: list[str], max_chars: int) -> str:
         """
-        Baut einen Textblock aus Assistent-Antworten auf.
-        Begrenzt auf max_chars um das LLM-Kontextfenster nicht zu überlasten.
+        Builds a text block from assistant responses.
+        Limited to max_chars to avoid overloading the LLM context window.
         """
         parts: list[str] = []
         total = 0
@@ -296,13 +296,13 @@ class Trainer:
 
 
 # ---------------------------------------------------------------------------
-# Hilfsfunktionen
+# Helper functions
 # ---------------------------------------------------------------------------
 
 def _parse_style_rules(raw: str) -> StyleRules:
     """
-    Parst die LLM-Antwort der Layer-1-Extraktion zu einem StyleRules-Objekt.
-    Wirft json.JSONDecodeError / ValueError / KeyError bei ungültigem Format.
+    Parses the LLM response from Layer-1 extraction into a StyleRules object.
+    Raises json.JSONDecodeError / ValueError / KeyError on invalid format.
     """
     data = _extract_json(raw)
     return StyleRules(
@@ -318,18 +318,18 @@ def _parse_style_rules(raw: str) -> StyleRules:
 
 def _extract_json(text: str) -> dict:
     """
-    Extrahiert das erste JSON-Objekt aus einem LLM-Antwort-Text.
-    LLMs umhüllen JSON oft mit Markdown-Fences oder Erklärtexten.
+    Extracts the first JSON object from an LLM response text.
+    LLMs often wrap JSON in Markdown fences or explanatory text.
     """
     text = text.strip()
 
-    # Markdown-Fence entfernen
+    # Strip Markdown fence
     if "```json" in text:
         text = text.split("```json", 1)[1].split("```", 1)[0].strip()
     elif "```" in text:
         text = text.split("```", 1)[1].split("```", 1)[0].strip()
 
-    # Ersten { ... } Block finden
+    # Find first { ... } block
     start = text.find("{")
     end   = text.rfind("}")
     if start != -1 and end != -1:
@@ -339,69 +339,69 @@ def _extract_json(text: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# LLM-Prompts
+# LLM prompts
 # ---------------------------------------------------------------------------
 
 _STYLE_EXTRACTION_PROMPT = """\
-Analysiere die folgenden Assistent-Antworten und extrahiere präzise Stilregeln.
+Analyze the following assistant responses and extract precise style rules.
 
-Sprache der Antworten: {language}
+Language of the responses: {language}
 
-Antworte ausschließlich mit einem JSON-Objekt — kein Erklärtext, keine Markdown-Fences.
+Respond exclusively with a JSON object — no explanatory text, no Markdown fences.
 Format:
 {{
   "formality_level": <1-5>,
-  "avg_sentence_length_max": <integer oder null>,
-  "preferred_vocabulary": ["Begriff1", "Begriff2"],
-  "avoided_vocabulary": ["Begriff1"],
+  "avg_sentence_length_max": <integer or null>,
+  "preferred_vocabulary": ["term1", "term2"],
+  "avoided_vocabulary": ["term1"],
   "custom_rules": [
-    {{"name": "regelname", "description": "Beschreibung der Regel"}}
+    {{"name": "rule_name", "description": "Description of the rule"}}
   ]
 }}
 
-Skala Formalität: 1 = sehr informell/umgangssprachlich, 5 = sehr formal/akademisch.
-preferred_vocabulary: Charakteristische Begriffe oder Phrasen die häufig vorkommen.
-avoided_vocabulary: Ausdrücke die konsistent vermieden werden.
-custom_rules: Weitere stilistische Beobachtungen (Satzbau, Struktur, Eigenheiten).
+Formality scale: 1 = very informal/colloquial, 5 = very formal/academic.
+preferred_vocabulary: Characteristic terms or phrases that appear frequently.
+avoided_vocabulary: Expressions that are consistently avoided.
+custom_rules: Additional stylistic observations (sentence structure, formatting, idiosyncrasies).
 
-Assistent-Antworten:
+Assistant responses:
 {responses}
 """
 
 _JSON_CORRECTION_PROMPT = """\
-Deine vorige Antwort war kein valides JSON-Objekt. Bitte antworte diesmal
-ausschließlich mit dem JSON-Objekt — ohne Erklärtext, ohne Markdown-Fences.
-Verwende exakt das Schema aus der ursprünglichen Aufgabe.
+Your previous response was not a valid JSON object. Please respond this time
+exclusively with the JSON object — no explanatory text, no Markdown fences.
+Use exactly the schema from the original task.
 """
 
 _SAMPLE_SELECTION_PROMPT = """\
-Die folgenden Interaktionen stammen aus Chat-Verläufen in der Sprache: {language}
+The following interactions come from chat histories in the language: {language}
 
-Wähle die {n} Interaktionen aus, die den Stil des Assistenten am besten repräsentieren.
-Kriterien: Typischkeit des Stils, Qualität, Vielfalt der Themen.
+Select the {n} interactions that best represent the assistant's style.
+Criteria: typicality of style, quality, diversity of topics.
 
-Antworte ausschließlich mit einem JSON-Objekt — kein Erklärtext.
+Respond exclusively with a JSON object — no explanatory text.
 Format:
 {{
-  "selected": [<Nummer>, <Nummer>, ...]
+  "selected": [<number>, <number>, ...]
 }}
 
-Interaktionen:
+Interactions:
 {candidates}
 """
 
 
 # ---------------------------------------------------------------------------
-# Datei-Loader
+# File loader
 # ---------------------------------------------------------------------------
 
 def load_conversations_from_file(path: str | Path, language: str = "de") -> list[Conversation]:
     """
-    Lädt Konversationen aus einer JSON-Datei.
+    Loads conversations from a JSON file.
 
-    Unterstützte Formate:
-      - Liste von Konversationen: [[{"role": ..., "content": ...}, ...], ...]
-      - Einzelne Konversation:    [{"role": ..., "content": ...}, ...]
+    Supported formats:
+      - List of conversations: [[{"role": ..., "content": ...}, ...], ...]
+      - Single conversation:   [{"role": ..., "content": ...}, ...]
     """
     path = Path(path)
     raw = json.loads(path.read_text(encoding="utf-8"))
@@ -409,11 +409,11 @@ def load_conversations_from_file(path: str | Path, language: str = "de") -> list
     if not raw:
         return []
 
-    # Einzelne Konversation (Liste von Turns)
+    # Single conversation (list of turns)
     if isinstance(raw[0], dict) and "role" in raw[0]:
         return [Conversation.from_openai_format(raw, language=language)]
 
-    # Liste von Konversationen
+    # List of conversations
     return [
         Conversation.from_openai_format(conv, language=language)
         for conv in raw
@@ -422,7 +422,7 @@ def load_conversations_from_file(path: str | Path, language: str = "de") -> list
 
 
 # ---------------------------------------------------------------------------
-# CLI-Einstiegspunkt
+# CLI entry point
 # ---------------------------------------------------------------------------
 
 def main() -> None:
@@ -433,11 +433,11 @@ def main() -> None:
     from mdal.llm.adapter import embedding_adapter_from_config, llm_adapter_from_config
 
     parser = argparse.ArgumentParser(
-        description="MDAL Trainer — Fingerprint aus Chat-Verläufen destillieren"
+        description="MDAL Trainer — distill fingerprint from chat histories"
     )
-    parser.add_argument("--config",   required=True, help="Pfad zur mdal.yaml")
-    parser.add_argument("--input",    required=True, nargs="+", help="Konversations-JSON-Dateien")
-    parser.add_argument("--language", default="de",  help="Sprache der Konversationen (default: de)")
+    parser.add_argument("--config",   required=True, help="Path to mdal.yaml")
+    parser.add_argument("--input",    required=True, nargs="+", help="Conversation JSON files")
+    parser.add_argument("--language", default="de",  help="Language of the conversations (default: de)")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -450,7 +450,7 @@ def main() -> None:
         conversations.extend(load_conversations_from_file(path, language=args.language))
 
     if not conversations:
-        print("Fehler: Keine Konversationen geladen.", file=sys.stderr)
+        print("Error: No conversations loaded.", file=sys.stderr)
         sys.exit(1)
 
     trainer = Trainer(
@@ -460,7 +460,7 @@ def main() -> None:
         embedding_model_name=config.embedding.model,
     )
     version = trainer.run(conversations=conversations, language=args.language)
-    print(f"Fingerprint v{version} für Sprache '{args.language}' gespeichert.")
+    print(f"Fingerprint v{version} for language '{args.language}' saved.")
 
 
 if __name__ == "__main__":

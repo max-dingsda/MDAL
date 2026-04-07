@@ -1,13 +1,13 @@
 """
-Format-Erkennung — identifiziert den Output-Typ vor der Strukturprüfung.
+Format detection — identifies the output type before structure checking.
 
-Erkannte Typen: JSON, XML, Prosa.
-Bei reiner Prosa entfällt die Strukturprüfung (F2, F6).
+Detected types: JSON, XML, prose.
+For pure prose, structure checking is skipped (F2, F6).
 
-Erkennungsreihenfolge:
-  1. JSON: versucht json.loads() — schlägt nicht fehl bei Whitespace/BOM
-  2. XML:  versucht lxml.etree.fromstring() — erkennt auch XML-Fragmente
-  3. Prosa: alles andere
+Detection order:
+  1. JSON: attempts json.loads() — does not fail on whitespace/BOM
+  2. XML:  attempts lxml.etree.fromstring() — also detects XML fragments
+  3. Prose: everything else
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ class OutputFormat(str, Enum):
 
 
 class DetectedOutput:
-    """Ergebnis der Format-Erkennung."""
+    """Result of format detection."""
 
     __slots__ = ("format", "xml_namespace", "xml_root_tag")
 
@@ -37,8 +37,8 @@ class DetectedOutput:
         xml_root_tag:  str | None = None,
     ) -> None:
         self.format        = format
-        self.xml_namespace = xml_namespace   # für Plugin-Matching
-        self.xml_root_tag  = xml_root_tag    # für Plugin-Matching
+        self.xml_namespace = xml_namespace   # for plugin matching
+        self.xml_root_tag  = xml_root_tag    # for plugin matching
 
     def is_structured(self) -> bool:
         return self.format != OutputFormat.PROSE
@@ -53,7 +53,7 @@ class DetectedOutput:
 
 
 def extract_code(text: str) -> str:
-    """Extrahiert reinen Code aus Markdown-Fences, falls vorhanden."""
+    """Extracts raw code from markdown fences if present."""
     match = re.search(r"```(?:json|xml)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
     if match:
         return match.group(1).strip()
@@ -62,19 +62,19 @@ def extract_code(text: str) -> str:
 
 def detect_format(text: str) -> DetectedOutput:
     """
-    Erkennt das Format des übergebenen Textes.
+    Detects the format of the given text.
 
-    Reihenfolge: JSON → XML → Prosa.
-    Wirft keine Exception — unbekannte Formate sind Prosa.
+    Order: JSON → XML → prose.
+    Never raises — unknown formats are treated as prose.
     """
     clean_text = extract_code(text)
     if not clean_text:
         return DetectedOutput(OutputFormat.PROSE)
-        
-    # 1. Explizite Markdown-Tags prüfen (erzwingt das Format, auch wenn kaputt!)
+
+    # 1. Check explicit markdown tags (forces the format, even if malformed)
     if re.search(r"```json", text, re.IGNORECASE):
         return DetectedOutput(OutputFormat.JSON)
-        
+
     if re.search(r"```xml", text, re.IGNORECASE):
         try:
             root = etree.fromstring(clean_xml.encode("utf-8"))
@@ -84,12 +84,12 @@ def detect_format(text: str) -> DetectedOutput:
                 xml_root_tag=etree.QName(root.tag).localname,
             )
         except Exception:
-            return DetectedOutput(OutputFormat.XML) # Kaputtes XML wird an StructureChecker gereicht
+            return DetectedOutput(OutputFormat.XML)  # Malformed XML is passed to StructureChecker
 
-    # 2. Heuristische Erkennung anhand des Inhalts
+    # 2. Heuristic detection based on content
     if clean_text.startswith(("{", "[")):
-        # Selbst wenn json.loads() fehlschlägt, ist es strukturell als JSON gedacht.
-        # Der StructureChecker wird den Parsing-Fehler dann sauber werfen.
+        # Even if json.loads() fails, it is structurally intended as JSON.
+        # StructureChecker will raise the parsing error cleanly.
         return DetectedOutput(OutputFormat.JSON)
 
     if clean_text.startswith("<"):
@@ -103,13 +103,13 @@ def detect_format(text: str) -> DetectedOutput:
                 xml_root_tag=root_tag,
             )
         except etree.XMLSyntaxError:
-            return DetectedOutput(OutputFormat.XML) # Kaputtes XML -> StructureChecker
+            return DetectedOutput(OutputFormat.XML)  # Malformed XML → StructureChecker
 
     return DetectedOutput(OutputFormat.PROSE)
 
 
 def _extract_namespace(clark_name: str) -> str | None:
-    """Extrahiert den Namespace aus einem Clark-Notation-Tag ({ns}local)."""
+    """Extracts the namespace from a Clark-notation tag ({ns}local)."""
     if clark_name.startswith("{"):
         end = clark_name.index("}")
         return clark_name[1:end]

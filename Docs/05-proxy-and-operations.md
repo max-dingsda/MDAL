@@ -1,57 +1,57 @@
-# Proxy, Startup und Betrieb
+# Proxy, Startup, and Operations
 
-## Proxy-Schicht
+## Proxy Layer
 
-Die Proxy-Implementierung liegt in `mdal/proxy/`.
+The proxy implementation lives in `mdal/proxy/`.
 
-### Enthaltene Module
+### Included Modules
 
-- `models.py` — OpenAI-kompatible Request/Response-Modelle
-- `app.py` — FastAPI-App und Endpunkte
-- `startup.py` — Factory-Funktionen zum Verdrahten der Pipeline
-- `server.py` — CLI-Einstiegspunkt und Uvicorn-Start
+- `models.py` — OpenAI-compatible request/response models
+- `app.py` — FastAPI app and endpoints
+- `startup.py` — factory functions for wiring the pipeline
+- `server.py` — CLI entry point and Uvicorn startup
 
-## API-Oberfläche
+## API Surface
 
-Der zentrale Laufzeitendpunkt ist:
+The primary runtime endpoint is:
 
 - `POST /v1/chat/completions`
 
-Zusätzlich gibt es:
+Additionally:
 
 - `GET /health`
 
-## Request-/Response-Modell
+## Request / Response Model
 
-`mdal/proxy/models.py` bildet absichtlich die OpenAI Chat Completions API nach.
+`mdal/proxy/models.py` deliberately mirrors the OpenAI Chat Completions API.
 
-Wesentliche Einschränkungen des aktuellen PoC:
+Key limitations of the current PoC:
 
-- `stream=True` wird abgelehnt
-- `usage`-Werte sind Platzhalter
-- zusätzliche Request-Felder werden zugelassen und durchgereicht
-- Tool-/Function-bezogene Felder werden nicht ausgewertet
+- `stream=True` is rejected
+- `usage` values are placeholders
+- additional request fields are allowed and passed through
+- tool/function-related fields are not evaluated
 
-## Startup-Reihenfolge
+## Startup Sequence
 
-`mdal/proxy/server.py` zeigt die tatsächliche Boot-Reihenfolge:
+`mdal/proxy/server.py` shows the actual boot sequence:
 
 ```mermaid
 flowchart TD
-    A[Config laden] --> B[Config validieren]
-    B --> C[Laufzeitpfade prüfen]
-    C --> D[Pipeline bauen]
-    D --> E[AuditWriter bauen]
-    E --> F[FastAPI state befüllen]
-    F --> G[Uvicorn starten]
+    A[Load Config] --> B[Validate Config]
+    B --> C[Verify Runtime Paths]
+    C --> D[Build Pipeline]
+    D --> E[Build AuditWriter]
+    E --> F[Populate FastAPI State]
+    F --> G[Start Uvicorn]
 ```
 
 ## `build_pipeline()` in `startup.py`
 
-Diese Factory verdrahtet:
+This factory wires together:
 
-- LLM-Adapter
-- Embedding-Adapter
+- LLM adapter
+- embedding adapter
 - PluginRegistry
 - FingerprintStore
 - Layer 1, 2, 3
@@ -62,36 +62,36 @@ Diese Factory verdrahtet:
 - LLMToneTransformer
 - PipelineOrchestrator
 
-Das Modul ist damit die zentrale technische Montage-Stelle des Systems.
+This module is the central technical assembly point of the system.
 
-## LLM-Adapter
+## LLM Adapter
 
-`mdal/llm/adapter.py` implementiert einen OpenAI-kompatiblen HTTP-Adapter.
+`mdal/llm/adapter.py` implements an OpenAI-compatible HTTP adapter.
 
-### Fähigkeiten
+### Capabilities
 
-- `complete()` für Chat Completions
-- `embed()` für Embeddings
+- `complete()` for chat completions
+- `embed()` for embeddings
 - `health_check()` via `/v1/models`
 
-### Fehlerklassen
+### Error Classes
 
 - `LLMUnavailableError`
 - `LLMResponseError`
 
-Diese Fehler werden im Proxy gezielt in passende HTTP-Antworten übersetzt.
+These errors are intentionally translated into appropriate HTTP responses in the proxy.
 
-## Konfiguration
+## Configuration
 
 `mdal/config.py` + `config/mdal.yaml`
 
-### Validierung
-Die Konfiguration wird zweistufig geprüft:
+### Validation
+Configuration is validated in two stages:
 
-1. **Strukturell** via Pydantic beim Laden
-2. **operativ** via Pfadprüfung in `validate_runtime_paths()`
+1. **Structurally** via Pydantic at load time
+2. **Operationally** via path verification in `validate_runtime_paths()`
 
-### Wichtige Konfigurationsbereiche
+### Key Configuration Areas
 
 - `llm`
 - `embedding`
@@ -103,25 +103,25 @@ Die Konfiguration wird zweistufig geprüft:
 - `fallback_llm`
 - `max_retries`
 
-## Audit und Benachrichtigung
+## Audit and Notification
 
 ### Audit
-`mdal/audit.py` implementiert einen write-only AuditWriter, aktuell mit JSONL-Datei als Ziel.
+`mdal/audit.py` implements a write-only AuditWriter, currently targeting a JSONL file.
 
 ### Notifier
-`mdal/notifier.py` informiert Administratoren bei:
+`mdal/notifier.py` notifies administrators when:
 
-- erschöpftem Retry-Limit
-- erkannter Fähigkeits-Asymmetrie
+- the retry limit is exhausted
+- a capability asymmetry is detected
 
-Die Kanäle sind:
+Supported channels:
 
-- Logdatei
-- Webhook
+- log file
+- webhook
 
-Fehler in der Benachrichtigung sollen den Hauptpfad nicht blockieren.
+Errors in notification must not block the main processing path.
 
-## Statusmeldungen
+## Status Reporting
 
-Die Status-API liegt in `mdal/status.py`.  
-Im Proxy-Betrieb wird laut `startup.py` der `LoggingStatusReporter` verwendet.
+The status API lives in `mdal/status.py`.
+In proxy operation, `startup.py` uses the `LoggingStatusReporter`.

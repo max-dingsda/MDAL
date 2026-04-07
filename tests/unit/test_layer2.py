@@ -1,4 +1,4 @@
-"""Unit-Tests für Semantic Layer 2 — Embedding-Vergleich."""
+"""Unit tests for Semantic Layer 2 — embedding comparison."""
 
 import math
 from unittest.mock import MagicMock
@@ -87,7 +87,7 @@ class TestLayer2EmbeddingChecker:
         assert result.level == ScoreLevel.LOW
 
     def test_medium_similarity_gives_medium(self):
-        # Cosine-Similarity zwischen diesen Vektoren liegt zwischen threshold_low und high
+        # Cosine similarity between these vectors lies between threshold_low and high
         centroid = [1.0, 0.0]
         # 45° → similarity = cos(45°) ≈ 0.707
         import math
@@ -120,7 +120,7 @@ class TestLayer2EmbeddingChecker:
         embed_mock.embed.assert_called_once_with("my output text")
 
     def test_custom_thresholds_respected(self):
-        # Mit sehr hohem threshold_high → MEDIUM statt HIGH
+        # With very high threshold_high → MEDIUM instead of HIGH
         v = [1.0, 0.0]
         embed_mock = MagicMock(embed=MagicMock(return_value=v))
         checker = Layer2EmbeddingChecker(

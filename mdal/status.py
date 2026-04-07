@@ -1,12 +1,10 @@
 """
-Status-Meldungen an den Client während der Pipeline-Verarbeitung (F15).
+Status messages to the client during pipeline processing (F15).
 
-Diese Meldungen informieren den Nutzer über den aktuellen Verarbeitungsstand.
-Die konkreten Strings sind auf Deutsch — die Zielgruppe ist der Endnutzer.
-
-StatusReporter ist ein Protocol — die konkrete Implementierung kann Meldungen
-per SSE, WebSocket, Log oder beliebigem anderen Kanal ausgeben.
-Die LoggingStatusReporter-Implementierung ist der PoC-Standard.
+These messages inform the user about the current processing state.
+StatusReporter is a Protocol — the concrete implementation can deliver
+messages via SSE, WebSocket, log, or any other channel.
+The LoggingStatusReporter implementation is the PoC default.
 """
 
 from __future__ import annotations
@@ -17,37 +15,37 @@ from typing import Protocol, runtime_checkable
 
 
 class StatusMessage(str, Enum):
-    """Vordefinierte Statusmeldungen für den Client (F15)."""
+    """Predefined status messages for the client (F15)."""
 
-    PROCESSING = "Anfrage wird verarbeitet"
-    CHECKING   = "Ergebnis wird geprüft"
-    ADJUSTING  = "Ergebnis wird angepasst"
-    REFINING   = "Antwort wird überarbeitet"
-    READY      = "Antwort ist bereit"
+    PROCESSING = "Processing request"
+    CHECKING   = "Verifying result"
+    ADJUSTING  = "Adjusting result"
+    REFINING   = "Refining response"
+    READY      = "Response ready"
 
 
 @runtime_checkable
 class StatusReporter(Protocol):
     """
-    Empfängt Status-Meldungen aus der Pipeline und leitet sie weiter.
+    Receives status messages from the pipeline and forwards them.
 
-    Implementierungen können:
-      - Meldungen ins Log schreiben (LoggingStatusReporter)
-      - Meldungen per SSE an den Client streamen (API-Phase)
-      - Meldungen in eine Queue schreiben (für Tests)
+    Implementations may:
+      - write messages to the log (LoggingStatusReporter)
+      - stream messages to the client via SSE (API phase)
+      - write messages to a queue (for tests)
     """
 
     def report(self, message: StatusMessage) -> None:
-        """Sendet eine Statusmeldung. Darf nicht werfen."""
+        """Sends a status message. Must not raise."""
         ...
 
 
 class LoggingStatusReporter:
     """
-    Schreibt Statusmeldungen in das Python-Log.
+    Writes status messages to the Python log.
 
-    Standard-Implementierung für den PoC.
-    Im Produktivbetrieb (Phase 5) durch SSE-Implementierung ersetzt.
+    Default implementation for the PoC.
+    Replaced by an SSE implementation in production (Phase 5).
     """
 
     def __init__(self) -> None:
@@ -59,9 +57,9 @@ class LoggingStatusReporter:
 
 class QueueStatusReporter:
     """
-    Sammelt Statusmeldungen in einer Liste.
+    Collects status messages in a list.
 
-    Wird in Tests verwendet um gelieferte Statusmeldungen zu prüfen.
+    Used in tests to verify delivered status messages.
     """
 
     def __init__(self) -> None:

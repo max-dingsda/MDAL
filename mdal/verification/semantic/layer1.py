@@ -1,17 +1,17 @@
 """
-Semantic Layer 1 — Regelbasierter Prüfer (SemanticCheckerProtocol).
+Semantic Layer 1 — rule-based checker (SemanticCheckerProtocol).
 
-Schnell und deterministisch. Prüft messbare Stilmerkmale aus dem Fingerprint:
-  - Formalitätsniveau (Heuristik: Satzlänge, Vokabular-Indikatoren)
-  - Bevorzugtes Vokabular (preferred_vocabulary)
-  - Vermiedenes Vokabular (avoided_vocabulary)
+Fast and deterministic. Checks measurable style properties from the fingerprint:
+  - Formality level (heuristic: sentence length, vocabulary indicators)
+  - Preferred vocabulary (preferred_vocabulary)
+  - Avoided vocabulary (avoided_vocabulary)
 
-Grenzen des PoC:
-  Die Formalitätsheuristik ist ein erster Ansatz für die Validierung.
-  Schwellwerte und Gewichtungen sind bewusst beobachtbar gehalten (NF9).
-  Ziel: herausfinden ob dieser Ansatz tragfähig ist (eine der 4 PoC-Fragen).
+PoC limitations:
+  The formality heuristic is a first approach for validation.
+  Thresholds and weights are deliberately kept observable (NF9).
+  Goal: determine whether this approach is viable (one of the 4 PoC questions).
 
-→ Rust-Kern (Zielarchitektur): regelbasierter Abgleich ohne LLM-Overhead.
+→ Rust core (target architecture): rule-based matching without LLM overhead.
 """
 
 from __future__ import annotations
@@ -22,18 +22,18 @@ from mdal.fingerprint.models import Fingerprint
 from mdal.interfaces.scoring import CheckResult, ScoreLevel
 from mdal.session import SessionContext
 
-# Formalitäts-Heuristik: Schwellwerte für Satzlänge (Wörter)
+# Formality heuristic: thresholds for sentence length (words)
 _FORMAL_MIN_AVG_SENTENCE_WORDS = 12
 _INFORMAL_MAX_AVG_SENTENCE_WORDS = 7
 
-# Informelle Indikatoren (sprachübergreifend — für Deutsch/Englisch)
+# Informal indicators (cross-language — for German/English)
 _INFORMAL_PATTERNS = re.compile(
     r"\b(naja|okay|ok|jo|äh|ähm|hmm|halt|irgendwie|eigentlich|sozusagen"
     r"|btw|imho|fyi|yeah|yep|nope|gonna|wanna|gotta)\b",
     re.IGNORECASE,
 )
 
-# Formelle Indikatoren
+# Formal indicators
 _FORMAL_PATTERNS = re.compile(
     r"\b(gemäß|hinsichtlich|infolgedessen|diesbezüglich|folglich|mithin"
     r"|demnach|entsprechend|insbesondere|ferner|zudem|darüber hinaus"
@@ -44,16 +44,16 @@ _FORMAL_PATTERNS = re.compile(
 
 class Layer1RuleChecker:
     """
-    Implementiert SemanticCheckerProtocol via regelbasierter Stilprüfung.
+    Implements SemanticCheckerProtocol via rule-based style checking.
 
-    Scoring-Logik:
-      Jede aktivierte Prüfung liefert ein Signal (pass/fail).
-      Das Gesamtergebnis ist das schwächste Signal:
-        - Avoided vocabulary gefunden      → LOW  (direkt)
-        - Formalität stark abweichend      → LOW
-        - Keine preferred terms gefunden   → MEDIUM
-        - Formalität leicht abweichend     → MEDIUM
-        - Alles passt                      → HIGH
+    Scoring logic:
+      Each enabled check produces a signal (pass/fail).
+      The overall result is the weakest signal:
+        - Avoided vocabulary found       → LOW  (immediately)
+        - Formality strongly deviating   → LOW
+        - No preferred terms found       → MEDIUM
+        - Formality slightly deviating   → MEDIUM
+        - Everything matches             → HIGH
     """
 
     def check(
@@ -66,7 +66,7 @@ class Layer1RuleChecker:
         scores: list[ScoreLevel] = []
         notes:  list[str]        = []
 
-        # --- Avoided vocabulary (F1: Stil-Normalisierung) ---
+        # --- Avoided vocabulary (F1: style normalization) ---
         if rules.avoided_vocabulary:
             found = [
                 w for w in rules.avoided_vocabulary
@@ -74,7 +74,7 @@ class Layer1RuleChecker:
             ]
             if found:
                 scores.append(ScoreLevel.LOW)
-                notes.append(f"Vermiedenes Vokabular gefunden: {found}")
+                notes.append(f"Avoided vocabulary found: {found}")
             else:
                 scores.append(ScoreLevel.HIGH)
 
@@ -90,14 +90,14 @@ class Layer1RuleChecker:
             elif ratio > 0:
                 scores.append(ScoreLevel.MEDIUM)
                 notes.append(
-                    f"Nur {len(found)}/{len(rules.preferred_vocabulary)} "
-                    f"bevorzugte Begriffe gefunden."
+                    f"Only {len(found)}/{len(rules.preferred_vocabulary)} "
+                    f"preferred terms found."
                 )
             else:
                 scores.append(ScoreLevel.MEDIUM)
-                notes.append("Kein bevorzugtes Vokabular gefunden.")
+                notes.append("No preferred vocabulary found.")
 
-        # --- Formalitätsniveau ---
+        # --- Formality level ---
         estimated = _estimate_formality(output)
         expected  = rules.formality_level
         delta     = abs(estimated - expected)
@@ -107,44 +107,44 @@ class Layer1RuleChecker:
         elif delta == 1:
             scores.append(ScoreLevel.MEDIUM)
             notes.append(
-                f"Formalität: erwartet={expected}, geschätzt≈{estimated} (Δ=1)."
+                f"Formality: expected={expected}, estimated≈{estimated} (Δ=1)."
             )
         else:
             scores.append(ScoreLevel.LOW)
             notes.append(
-                f"Formalität stark abweichend: erwartet={expected}, geschätzt≈{estimated} (Δ={delta})."
+                f"Formality strongly deviating: expected={expected}, estimated≈{estimated} (Δ={delta})."
             )
 
-        # Satzlängen-Check (sofern konfiguriert)
+        # Sentence length check (if configured)
         if rules.avg_sentence_length_max is not None:
             avg_len = _avg_sentence_length(output)
             if avg_len > rules.avg_sentence_length_max * 1.5:
                 scores.append(ScoreLevel.LOW)
                 notes.append(
-                    f"Durchschnittliche Satzlänge zu hoch: "
-                    f"{avg_len:.0f} Wörter (max. {rules.avg_sentence_length_max})."
+                    f"Average sentence length too high: "
+                    f"{avg_len:.0f} words (max. {rules.avg_sentence_length_max})."
                 )
             elif avg_len > rules.avg_sentence_length_max:
                 scores.append(ScoreLevel.MEDIUM)
 
-        # Schwächstes Signal gewinnt
+        # Weakest signal wins
         final = _weakest(scores) if scores else ScoreLevel.MEDIUM
 
         return CheckResult(
             level=final,
-            details="; ".join(notes) if notes else "Regelprüfung bestanden.",
+            details="; ".join(notes) if notes else "Rule check passed.",
         )
 
 
 # ---------------------------------------------------------------------------
-# Hilfsfunktionen — Formalitätsheuristik
+# Helper functions — formality heuristic
 # ---------------------------------------------------------------------------
 
 def _estimate_formality(text: str) -> int:
     """
-    Schätzt das Formalitätsniveau auf einer 1-5-Skala.
-    Heuristik: Kombination aus Satzlänge und Vokabular-Indikatoren.
-    Für den PoC: beobachten ob diese Heuristik sinnvolle Werte liefert.
+    Estimates the formality level on a 1-5 scale.
+    Heuristic: combination of sentence length and vocabulary indicators.
+    For the PoC: observe whether this heuristic produces meaningful values.
     """
     avg_len = _avg_sentence_length(text)
     word_count = len(text.split())
@@ -155,7 +155,7 @@ def _estimate_formality(text: str) -> int:
     informal_hits = len(_INFORMAL_PATTERNS.findall(text))
     formal_hits   = len(_FORMAL_PATTERNS.findall(text))
 
-    # Rohwert: Satzlänge als Basis (kurz=informal, lang=formal)
+    # Raw value: sentence length as base (short=informal, long=formal)
     if avg_len <= _INFORMAL_MAX_AVG_SENTENCE_WORDS:
         base = 1
     elif avg_len <= 10:
@@ -167,7 +167,7 @@ def _estimate_formality(text: str) -> int:
     else:
         base = 5
 
-    # Vokabular-Korrekturen
+    # Vocabulary adjustments
     adjustment = 0
     if informal_hits > 0:
         adjustment -= min(informal_hits, 2)
@@ -178,7 +178,7 @@ def _estimate_formality(text: str) -> int:
 
 
 def _avg_sentence_length(text: str) -> float:
-    """Durchschnittliche Anzahl Wörter pro Satz."""
+    """Average number of words per sentence."""
     sentences = re.split(r"[.!?]+", text)
     sentences = [s.strip() for s in sentences if s.strip()]
     if not sentences:
@@ -188,6 +188,6 @@ def _avg_sentence_length(text: str) -> float:
 
 
 def _weakest(scores: list[ScoreLevel]) -> ScoreLevel:
-    """Gibt das schwächste Score-Level zurück (LOW < MEDIUM < HIGH)."""
+    """Returns the weakest score level (LOW < MEDIUM < HIGH)."""
     order = {ScoreLevel.LOW: 0, ScoreLevel.MEDIUM: 1, ScoreLevel.HIGH: 2}
     return min(scores, key=lambda s: order[s])

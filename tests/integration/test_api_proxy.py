@@ -1,20 +1,20 @@
 """
-Integrations-Tests für den MDAL API-Proxy.
+Integration tests for the MDAL API proxy.
 
-Testet die FastAPI-Routen mit echtem ASGI-Transport (kein Netzwerk).
-Der PipelineOrchestrator wird durch einen Mock ersetzt — die Proxy-Logik
-(Routing, Fehlerbehandlung, Request/Response-Format) steht im Fokus.
+Tests FastAPI routes with real ASGI transport (no network).
+The PipelineOrchestrator is replaced by a mock — focus is on proxy logic
+(routing, error handling, request/response format).
 
-Teste:
-  - POST /v1/chat/completions — Erfolgsfall
-  - POST /v1/chat/completions — stream=True abgelehnt (F6)
+Tests:
+  - POST /v1/chat/completions — success case
+  - POST /v1/chat/completions — stream=True rejected (F6)
   - POST /v1/chat/completions — RetryLimitError → 503
   - POST /v1/chat/completions — LLMUnavailableError → 503
-  - POST /v1/chat/completions — Fingerprint fehlt → 503
-  - POST /v1/chat/completions — Sprachauswahl via Header
-  - GET /health — LLM erreichbar
-  - GET /health — LLM nicht erreichbar → 503
-  - OpenAI-kompatibler Response-Body
+  - POST /v1/chat/completions — fingerprint missing → 503
+  - POST /v1/chat/completions — language selection via header
+  - GET /health — LLM reachable
+  - GET /health — LLM not reachable → 503
+  - OpenAI-compatible response body
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ from mdal.session import SessionContext
 
 @pytest.fixture(autouse=True)
 def reset_app_state():
-    """Stellt sicher dass App-State zwischen Tests sauber ist."""
+    """Ensures app state is clean between tests."""
     yield
     # Cleanup
     for attr in ("pipeline", "audit", "default_language"):
@@ -45,7 +45,7 @@ def reset_app_state():
 
 
 def setup_app(pipeline_mock: MagicMock, language: str = "de") -> None:
-    """Konfiguriert App-State für Tests."""
+    """Configures app state for tests."""
     app.state.pipeline         = pipeline_mock
     app.state.audit            = None
     app.state.default_language = language
@@ -67,6 +67,7 @@ EXAMPLE_REQUEST = {
 # ---------------------------------------------------------------------------
 # GET /health
 # ---------------------------------------------------------------------------
+
 
 class TestHealthEndpoint:
     def test_returns_ok_when_llm_reachable(self):
@@ -91,7 +92,7 @@ class TestHealthEndpoint:
 
 
 # ---------------------------------------------------------------------------
-# POST /v1/chat/completions — Erfolg
+# POST /v1/chat/completions — success
 # ---------------------------------------------------------------------------
 
 class TestChatCompletionsSuccess:
@@ -142,7 +143,7 @@ class TestChatCompletionsSuccess:
 
 
 # ---------------------------------------------------------------------------
-# POST /v1/chat/completions — Sprache
+# POST /v1/chat/completions — language
 # ---------------------------------------------------------------------------
 
 class TestLanguageSelection:
@@ -172,7 +173,7 @@ class TestLanguageSelection:
 
 
 # ---------------------------------------------------------------------------
-# POST /v1/chat/completions — Fehlerbehandlung
+# POST /v1/chat/completions — error handling
 # ---------------------------------------------------------------------------
 
 class TestChatCompletionsErrors:
@@ -222,7 +223,7 @@ class TestChatCompletionsErrors:
         assert response.status_code == 503
 
     def test_extra_fields_accepted(self):
-        """OpenAI-kompatible Felder wie temperature werden akzeptiert."""
+        """OpenAI-compatible fields like temperature are accepted."""
         setup_app(make_pipeline_mock())
 
         with TestClient(app) as client:
@@ -244,7 +245,7 @@ class TestChatCompletionsErrors:
 
 
 # ---------------------------------------------------------------------------
-# Audit-Integration
+# Audit integration
 # ---------------------------------------------------------------------------
 
 class TestAuditIntegration:
@@ -264,7 +265,7 @@ class TestAuditIntegration:
 
     def test_no_audit_configured_does_not_crash(self):
         setup_app(make_pipeline_mock())
-        app.state.audit = None  # explizit kein Audit
+        app.state.audit = None  # explicitly no audit
 
         with TestClient(app) as client:
             response = client.post("/v1/chat/completions", json=EXAMPLE_REQUEST)

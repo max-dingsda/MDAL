@@ -1,12 +1,12 @@
 """
-Admin-Benachrichtigung bei Eskalation und Fähigkeits-Asymmetrie (F5, F13).
+Admin notification on escalation and capability asymmetry (F5, F13).
 
-Zwei Kanäle (konfigurierbar):
-  - Logdatei (JSONL, write-only, analog zu mdal/audit.py)
-  - Webhook (HTTP POST, best-effort — Fehler werden geloggt, nicht geworfen)
+Two channels (configurable):
+  - Log file (JSONL, write-only, analogous to mdal/audit.py)
+  - Webhook (HTTP POST, best-effort — errors are logged, not raised)
 
-F5:  Retry-Limit erschöpft → notify_escalation
-F13: LLM kann Stilanforderungen dauerhaft nicht erfüllen → notify_capability_asymmetry
+F5:  Retry limit exhausted → notify_escalation
+F13: LLM persistently unable to meet style requirements → notify_capability_asymmetry
 """
 
 from __future__ import annotations
@@ -26,17 +26,17 @@ logger = logging.getLogger(__name__)
 
 class AdminNotifier:
     """
-    Benachrichtigt den Administrator bei kritischen Pipeline-Ereignissen.
+    Notifies the administrator of critical pipeline events.
 
-    Kein Exception-Propagation nach außen — Benachrichtigungsfehler werden
-    nur geloggt, damit der Hauptpfad nicht blockiert wird.
+    No exception propagation to the outside — notification errors are
+    only logged so the main processing path is not blocked.
     """
 
     def __init__(self, config: NotifierConfig) -> None:
         self._config = config
 
     # ------------------------------------------------------------------
-    # Öffentliche API
+    # Public API
     # ------------------------------------------------------------------
 
     def notify_escalation(
@@ -46,11 +46,11 @@ class AdminNotifier:
         last_error: str,
     ) -> None:
         """
-        F5: Retry-Limit erschöpft — Output wird zurückgehalten.
+        F5: Retry limit exhausted — output is withheld.
 
-        Wird aufgerufen bevor RetryLimitError geworfen wird.
+        Called before RetryLimitError is raised.
         """
-        logger.error("🛑 Fachliche Eskalation (503) - Abbruch nach %d Versuchen: %s", retry_count, last_error)
+        logger.error("🛑 Escalation (503) - aborting after %d attempts: %s", retry_count, last_error)
         self._notify("escalation", {
             "session_id":  session_id,
             "retry_count": retry_count,
@@ -64,12 +64,12 @@ class AdminNotifier:
         details: str,
     ) -> None:
         """
-        F13: LLM kann Stil-Anforderungen des Fingerprints nicht erfüllen.
+        F13: LLM unable to meet the style requirements of the fingerprint.
 
-        Hinweis für den Admin: Fingerprint ggf. neu kalibrieren oder
-        Modell austauschen.
+        Note for the admin: consider recalibrating the fingerprint or
+        switching the model.
         """
-        logger.warning("⚠️ Fähigkeits-Asymmetrie erkannt (Sprache: %s): %s", language, details)
+        logger.warning("⚠️ Capability asymmetry detected (language: %s): %s", language, details)
         self._notify("capability_asymmetry", {
             "session_id": session_id,
             "language":   language,
@@ -78,10 +78,10 @@ class AdminNotifier:
 
     def notify_technical_crash(self, error: str, details: str, traceback_str: str) -> None:
         """
-        F4/F11: Unbehandelter technischer Absturz (z.B. Timeout, interner Bug).
-        Wird vom globalen Exception-Handler aufgerufen, um Silent Fails zu verhindern.
+        F4/F11: Unhandled technical crash (e.g. timeout, internal bug).
+        Called by the global exception handler to prevent silent failures.
         """
-        # Der technische Absturz wird im server.py bereits per logger.error inkl. Traceback geloggt.
+        # The technical crash is already logged with traceback via logger.error in server.py.
         self._notify("technical_crash", {
             "error":     error,
             "details":   details,
@@ -89,7 +89,7 @@ class AdminNotifier:
         })
 
     # ------------------------------------------------------------------
-    # Internes
+    # Internal
     # ------------------------------------------------------------------
 
     def _notify(self, event_type: str, data: dict[str, Any]) -> None:
@@ -105,7 +105,7 @@ class AdminNotifier:
     def _write_log(self, entry: dict[str, Any]) -> None:
         if not self._config.log_path:
             logger.warning(
-                "AdminNotifier: kein log_path konfiguriert — Ereignis: %s",
+                "AdminNotifier: no log_path configured — event: %s",
                 entry,
             )
             return
@@ -115,7 +115,7 @@ class AdminNotifier:
             with path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
         except OSError as exc:
-            logger.error("AdminNotifier: Logdatei nicht schreibbar (%s): %s", path, exc)
+            logger.error("AdminNotifier: log file not writable (%s): %s", path, exc)
 
     def _send_webhook(self, entry: dict[str, Any]) -> None:
         try:
@@ -126,7 +126,7 @@ class AdminNotifier:
                 )
                 if response.status_code >= 400:
                     logger.warning(
-                        "AdminNotifier: Webhook antwortete mit %d", response.status_code
+                        "AdminNotifier: webhook responded with %d", response.status_code
                     )
         except Exception as exc:
-            logger.warning("AdminNotifier: Webhook-Aufruf fehlgeschlagen: %s", exc)
+            logger.warning("AdminNotifier: webhook call failed: %s", exc)

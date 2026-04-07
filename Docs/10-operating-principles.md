@@ -1,72 +1,72 @@
-# Betriebsprinzipien und Nicht-Ziele
+# Operating Principles and Non-Goals
 
-## Betriebsprinzipien
+## Operating Principles
 
-### Kontrollierte statt unmittelbare Ausgabe
+### Controlled Rather Than Immediate Output
 
-MDAL ist darauf ausgelegt, Modellantworten nicht sofort weiterzureichen, sondern sie zunächst in einen kontrollierten Bewertungsprozess zu überführen. Eine technisch vorhandene Antwort ist noch kein fachlich freigegebenes Ergebnis.
+MDAL is designed not to pass model responses directly to the client, but to route them through a controlled evaluation process first. A technically present response is not yet a domain-approved result.
 
-### Stabilisierung statt bloßer Durchleitung
+### Stabilization Rather Than Mere Passthrough
 
-Die Hauptaufgabe von MDAL ist nicht Transport, sondern Stabilisierung. Die Schicht existiert, um Schwankungen in Modellverhalten, Antwortqualität und Strukturtreue abzufedern und in ein verlässlicheres Nutzungserlebnis zu übersetzen.
+The primary task of MDAL is not transport, but stabilization. The layer exists to absorb fluctuations in model behavior, response quality, and structural fidelity and translate them into a more reliable user experience.
 
-### Referenzniveau statt pauschaler Qualitätsbehauptung
+### Reference Level Rather Than Blanket Quality Claims
 
-MDAL prüft Antworten gegen ein bekanntes Referenzniveau. Bei freier Prosa bedeutet das in erster Linie Stilprüfung und gegebenenfalls Transformation oder feinere Nachschärfung im Sinne eines Refinements. Eine weitergehende fachliche oder formale Qualitätsprüfung erfolgt nur dort, wo passende Prüfplugins vorhanden sind.
+MDAL evaluates responses against a known reference level. For free-form prose this means primarily style checking and, where necessary, transformation or finer refinement. Further domain-specific or formal quality checking only takes place where matching validation plugins are available.
 
-### Validierung nur bei vorhandener Prüfbasis
+### Validation Only When Verification Basis Is Present
 
-Insbesondere bei strukturierten Inhalten gilt: Plausibilität genügt nicht. Wenn geeignete Prüfplugins oder Schemata vorliegen, muss die formale oder fachliche Validierung Teil der Freigabelogik sein. Fehlt diese Prüfbasis, darf auch keine weitergehende Qualitätsaussage suggeriert werden.
+For structured content in particular: plausibility is not sufficient. If suitable validation plugins or schemas are available, formal or domain validation must be part of the release logic. If this verification basis is missing, no further quality statement may be implied.
 
-### Eskalation statt stiller Verwässerung
+### Escalation Rather Than Silent Dilution
 
-Wenn das System die gewünschte Stabilität oder Validität nicht innerhalb definierter Grenzen erreichen kann, ist Eskalation die korrekte Reaktion. MDAL ist nicht dafür da, problematische Ergebnisse unbemerkt in den Regelbetrieb zu schleusen.
+If the system cannot achieve the desired stability or validity within defined limits, escalation is the correct response. MDAL is not designed to smuggle problematic results into normal operations unnoticed.
 
-## Nicht-Ziele
+## Non-Goals
 
-### Kein Versprechen identischer Ausgaben
+### No Promise of Identical Outputs
 
-MDAL ist kein Mechanismus zur vollständigen Determinisierung von Sprachmodellen. Selbst bei gleichem Input und gleichem Modell kann Variabilität bestehen. Ziel ist nicht Identität, sondern Stabilität im Nutzungserlebnis.
+MDAL is not a mechanism for full determinization of language models. Even with the same input and the same model, variability may exist. The goal is not identity, but stability in the user experience.
 
-### Kein Ersatz für Domänenlogik
+### No Replacement for Domain Logic
 
-MDAL ersetzt nicht die fachlichen Regeln der konsumierenden Anwendung. Es kann Stiltreue kontrollieren und strukturierte Inhalte validieren, sofern Prüfbasis vorhanden ist, übernimmt aber nicht die vollständige Geschäftslogik eines Zielsystems.
+MDAL does not replace the domain rules of the consuming application. It can control style fidelity and validate structured content where a verification basis exists, but it does not assume the complete business logic of a target system.
 
-### Keine vollständige Unabhängigkeit vom Modell
+### No Complete Independence from the Model
 
-MDAL reduziert wahrnehmbare Model-Shift-Effekte, macht eine Anwendung aber nicht vollständig unabhängig vom Verhalten der zugrunde liegenden Modelle. Die Qualität der Basismodelle bleibt weiterhin relevant.
+MDAL reduces perceptible model-shift effects, but does not make an application fully independent from the behavior of the underlying models. The quality of the base models remains relevant.
 
-### Keine unbegrenzte automatische Reparatur
+### No Unlimited Automatic Repair
 
-Transformation, Refinement und Retry sind kontrollierte Mechanismen, keine Endlosschleifen. Wenn Abweichungen nicht innerhalb definierter Grenzen behebbar sind, muss das System abbrechen oder eskalieren.
+Transformation, refinement, and retry are controlled mechanisms, not endless loops. If deviations cannot be resolved within defined limits, the system must abort or escalate.
 
-### Keine stillschweigende Qualitätsbehauptung ohne Plugin
+### No Silent Quality Claim Without a Plugin
 
-Wenn strukturierte Inhalte validiert werden müssten, darf das Fehlen eines erforderlichen Plugins nicht in eine implizite Qualitätsfreigabe umgedeutet werden. Ohne Prüfbasis ist nur eine begrenzte Aussage über Verwendbarkeit möglich.
+If structured content would need to be validated, the absence of a required plugin must not be reinterpreted as an implicit quality approval. Without a verification basis, only a limited statement about usability is possible.
 
-## Leitgedanke
+## Guiding Principle
 
-Die Betriebsphilosophie von MDAL lässt sich in einem Satz zusammenfassen:
+The operating philosophy of MDAL can be summarized in one sentence:
 
-> Nicht jede Modellantwort ist ein Ergebnis, und nicht jedes Ergebnis ist für den Regelbetrieb geeignet.
+> Not every model response is a result, and not every result is suitable for production use.
 
-Dabei gilt zusätzlich:
+Additionally:
 
-> Nicht jede akzeptierte Antwort wurde fachlich vollvalidiert; die Tiefe der Prüfung hängt davon ab, welche Prüfbasis für den jeweiligen Inhalt tatsächlich verfügbar ist.
+> Not every accepted response has been fully validated from a domain perspective; the depth of verification depends on which verification basis is actually available for the respective content.
 
-## Übersicht der Betriebsprinzipien
+## Operating Principles Overview
 
 ```mermaid
 flowchart LR
-    A[LLM liefert Antwort] --> B[Prüfung gegen Referenzniveau]
-    B --> C{Strukturierter Inhalt mit Plugin?}
-    C -- Ja --> D[Formale / fachliche Validierung]
-    C -- Nein --> E[Stilprüfung / Transformation / Refinement]
-    D --> F{Innerhalb Korridor?}
+    A[LLM Delivers Response] --> B[Evaluation Against Reference Level]
+    B --> C{Structured Content with Plugin?}
+    C -- Yes --> D[Formal / Domain Validation]
+    C -- No --> E[Style Check / Transformation / Refinement]
+    D --> F{Within Corridor?}
     E --> F
-    F -- Ja --> G[Freigabe]
-    F -- Nein --> H[Transformation, Refinement oder Retry]
-    H --> I{Noch innerhalb Betriebsgrenzen?}
-    I -- Ja --> B
-    I -- Nein --> J[Eskalation]
+    F -- Yes --> G[Release]
+    F -- No --> H[Transformation, Refinement, or Retry]
+    H --> I{Still Within Operational Limits?}
+    I -- Yes --> B
+    I -- No --> J[Escalation]
 ```

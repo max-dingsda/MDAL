@@ -1,4 +1,4 @@
-"""Unit-Tests für das Scoring-Modell — alle Pfade der Entscheidungstabelle."""
+"""Unit tests for the scoring model — all paths of the decision table."""
 
 import pytest
 
@@ -17,9 +17,9 @@ LOW    = ScoreLevel.LOW
 
 class TestScoringEngine:
     """
-    Vollständige Abdeckung der Entscheidungstabelle aus der Architekturskizze.
-    Diese Tests sind gleichzeitig Regressionstests — die Tabelle darf sich nicht
-    ohne explizite Entscheidung ändern.
+    Complete coverage of the decision table from the architecture sketch.
+    These tests also serve as regression tests — the table must not change
+    without an explicit decision.
     """
 
     def setup_method(self):
@@ -60,7 +60,7 @@ class TestScoringEngine:
     def test_s1_medium_s2_medium_gives_tiebreak(self):
         assert self.scorer.decide(r(MEDIUM), r(MEDIUM)) == ScoringDecision.TIEBREAK
 
-    # --- Nach Tiebreak ---
+    # --- After tiebreak ---
 
     def test_tiebreak_passed_gives_transform(self):
         assert self.scorer.decide_after_tiebreak(True) == ScoringDecision.TRANSFORM

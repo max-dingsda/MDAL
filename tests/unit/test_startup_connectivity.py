@@ -1,4 +1,4 @@
-"""Unit-Tests für connectivity_check() in mdal.proxy.startup (CR-Finding #6)."""
+"""Unit tests for connectivity_check() in mdal.proxy.startup (CR-Finding #6)."""
 
 from unittest.mock import MagicMock, patch
 
@@ -34,7 +34,7 @@ def mock_adapter(healthy: bool) -> MagicMock:
 
 
 # ---------------------------------------------------------------------------
-# Erfolgsfälle
+# Success cases
 # ---------------------------------------------------------------------------
 
 class TestConnectivityCheckSuccess:
@@ -48,11 +48,11 @@ class TestConnectivityCheckSuccess:
         config = make_config(audit_target="file")
         with patch("mdal.proxy.startup.llm_adapter_from_config",   return_value=mock_adapter(True)), \
              patch("mdal.proxy.startup.embedding_adapter_from_config", return_value=mock_adapter(True)):
-            connectivity_check(config)   # kein DB-Treiber nötig
+            connectivity_check(config)   # no DB driver needed
 
 
 # ---------------------------------------------------------------------------
-# Fehlerfälle
+# Failure cases
 # ---------------------------------------------------------------------------
 
 class TestConnectivityCheckFailures:
@@ -60,14 +60,14 @@ class TestConnectivityCheckFailures:
         config = make_config()
         with patch("mdal.proxy.startup.llm_adapter_from_config",   return_value=mock_adapter(False)), \
              patch("mdal.proxy.startup.embedding_adapter_from_config", return_value=mock_adapter(True)):
-            with pytest.raises(ConfigError, match="LLM nicht erreichbar"):
+            with pytest.raises(ConfigError, match="Primary LLM not reachable"):
                 connectivity_check(config)
 
     def test_embedding_unreachable_raises(self):
         config = make_config()
         with patch("mdal.proxy.startup.llm_adapter_from_config",   return_value=mock_adapter(True)), \
              patch("mdal.proxy.startup.embedding_adapter_from_config", return_value=mock_adapter(False)):
-            with pytest.raises(ConfigError, match="Embedding-Endpunkt nicht erreichbar"):
+            with pytest.raises(ConfigError, match="Embedding endpoint not reachable"):
                 connectivity_check(config)
 
     def test_both_unreachable_error_lists_both(self):
@@ -89,19 +89,19 @@ class TestConnectivityCheckFailures:
 
 
 # ---------------------------------------------------------------------------
-# Fallback-LLM (nicht blockernd)
+# Fallback LLM (non-blocking)
 # ---------------------------------------------------------------------------
 
 class TestConnectivityCheckFallback:
     def test_fallback_unreachable_does_not_raise(self):
-        """Fallback-LLM nicht erreichbar → nur Warning, kein Startabbruch."""
+        """Fallback LLM not reachable → warning only, no startup abort."""
         config = make_config(
             fallback_llm={"url": "http://fallback:9999", "model": "gemma3"}
         )
         fallback_adapter = mock_adapter(False)
         with patch("mdal.proxy.startup.llm_adapter_from_config",   return_value=mock_adapter(True)), \
              patch("mdal.proxy.startup.embedding_adapter_from_config", return_value=mock_adapter(True)):
-            # Für den Fallback-LLM-Adapter einen separaten Mock holen
+            # Provide a separate mock for the fallback LLM adapter
             with patch("mdal.proxy.startup.llm_adapter_from_config",
                        side_effect=[mock_adapter(True), fallback_adapter]):
                 connectivity_check(config)   # darf nicht werfen

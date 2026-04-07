@@ -1,4 +1,4 @@
-"""Unit-Tests für mdal.llm.adapter — OpenAICompatibleAdapter."""
+"""Unit tests for mdal.llm.adapter — OpenAICompatibleAdapter."""
 
 import pytest
 import respx
@@ -19,7 +19,7 @@ BASE_URL = "http://localhost:11434"
 
 
 # ---------------------------------------------------------------------------
-# Protocol-Konformität (Rust-Migration: Interface muss erfüllt sein)
+# Protocol conformance (Rust migration: interface must be satisfied)
 # ---------------------------------------------------------------------------
 
 class TestProtocolConformance:

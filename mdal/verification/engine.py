@@ -1,23 +1,23 @@
 """
-Verification Engine — Orchestrierung der vollständigen Prüfpipeline (F1, F2, F6, F18).
+Verification Engine — orchestration of the complete verification pipeline (F1, F2, F6, F18).
 
-Ablauf:
-  1. Betriebsmodus prüfen: welche Checks sind aktiv? (F18)
-  2. Format erkennen (detector)
-  3. Aktive Checks ausführen:
-     - Strukturprüfung (sofern aktiv und Output strukturiert)
-     - Semantikprüfung (sofern aktiv): S1 + S2 parallel, S3 nur bei TIEBREAK
-  4. Scoring-Entscheidung treffen
-  5. Ergebnis zurückgeben
+Flow:
+  1. Check operating mode: which checks are active? (F18)
+  2. Detect format (detector)
+  3. Run active checks:
+     - Structure check (if active and output is structured)
+     - Semantic check (if active): S1 + S2 in parallel, S3 only for TIEBREAK
+  4. Make scoring decision
+  5. Return result
 
-F6: Prüfung erfolgt ausschließlich auf vollständigen Outputs.
-    Die Engine bekommt immer den fertigen Output — kein Streaming-Eingriff.
+F6: Verification runs exclusively on complete outputs.
+    The engine always receives the finished output — no streaming intervention.
 
-F18: Einzelne Prüfungen deaktivierbar; beide gleichzeitig nie abschaltbar
-     (wird in config.py sichergestellt).
+F18: Individual checks can be deactivated; both can never be disabled simultaneously
+     (enforced in config.py).
 
-Parallelisierung: S1 und S2 laufen parallel via ThreadPoolExecutor.
-S3 nur on-demand bei TIEBREAK.
+Parallelization: S1 and S2 run in parallel via ThreadPoolExecutor.
+S3 only on demand for TIEBREAK.
 """
 
 from __future__ import annotations
@@ -45,17 +45,17 @@ from mdal.verification.structure import StructureChecker
 
 @dataclass
 class VerificationResult:
-    """Vollständiges Ergebnis eines Prüfdurchlaufs."""
+    """Complete result of a verification pass."""
     decision:         ScoringDecision
-    structure_result: StructureCheckResult | None  # None wenn nicht aktiv/nicht strukturiert
-    semantic_s1:      CheckResult | None            # None wenn semantic nicht aktiv
+    structure_result: StructureCheckResult | None  # None if not active / not structured
+    semantic_s1:      CheckResult | None            # None if semantic not active
     semantic_s2:      CheckResult | None
-    semantic_s3:      CheckResult | None            # None wenn kein TIEBREAK nötig
+    semantic_s3:      CheckResult | None            # None if no TIEBREAK needed
     output_format:    str                           # "json" | "xml" | "prose"
 
     @property
     def passed(self) -> bool:
-        """Kein Refinement nötig — Output kann direkt (oder nach Transform) ausgegeben werden."""
+        """No refinement needed — output can be delivered directly (or after transform)."""
         return self.decision in (ScoringDecision.OUTPUT, ScoringDecision.TRANSFORM)
 
     @property
@@ -63,24 +63,24 @@ class VerificationResult:
         return self.decision == ScoringDecision.TRANSFORM
 
     def error_summary(self) -> str:
-        """Fehlerbericht für den Refinement-Prompt ans LLM."""
+        """Error report for the refinement prompt sent to the LLM."""
         parts: list[str] = []
         if self.structure_result and not self.structure_result.passed:
-            parts.append(f"Strukturfehler: {self.structure_result.error_report}")
+            parts.append(f"Structure error: {self.structure_result.error_report}")
         if self.semantic_s1 and self.semantic_s1.level == ScoreLevel.LOW:
-            parts.append(f"Stilregel-Verletzung: {self.semantic_s1.details}")
+            parts.append(f"Style rule violation: {self.semantic_s1.details}")
         if self.semantic_s2 and self.semantic_s2.level == ScoreLevel.LOW:
-            parts.append(f"Stil-Abweichung (Embedding): {self.semantic_s2.details}")
+            parts.append(f"Style deviation (embedding): {self.semantic_s2.details}")
         if self.semantic_s3 and self.semantic_s3.level == ScoreLevel.LOW:
-            parts.append(f"Stil-Abweichung (Judge): {self.semantic_s3.details}")
+            parts.append(f"Style deviation (judge): {self.semantic_s3.details}")
         return "; ".join(parts) if parts else ""
 
 
 class VerificationEngine:
     """
-    Orchestriert den vollständigen Prüfdurchlauf für einen LLM-Output.
+    Orchestrates the complete verification pass for an LLM output.
 
-    Wird einmal pro System-Instanz angelegt — alle Abhängigkeiten per Constructor.
+    Created once per system instance — all dependencies via constructor.
     """
 
     def __init__(
@@ -106,19 +106,19 @@ class VerificationEngine:
         context:     SessionContext,
     ) -> VerificationResult:
         """
-        Führt alle aktiven Prüfungen durch und gibt eine Entscheidung zurück.
+        Runs all active checks and returns a decision.
 
-        F6: output muss vollständig sein — keine Streaming-Fragmente.
+        F6: output must be complete — no streaming fragments.
         """
         detected = detect_format(output)
         fmt      = detected.format.value
 
-        # --- Strukturprüfung ---
+        # --- Structure check ---
         structure_result: StructureCheckResult | None = None
         if self._checks.structure and detected.is_structured():
             structure_result = self._structure.check(output, detected)
             if not structure_result.passed:
-                # Strukturfehler → sofort REFINEMENT, kein Semantic-Check nötig
+                # Structure error → immediately REFINEMENT, no semantic check needed
                 return VerificationResult(
                     decision=ScoringDecision.REFINEMENT,
                     structure_result=structure_result,
@@ -127,9 +127,9 @@ class VerificationEngine:
                     semantic_s3=None,
                     output_format=fmt,
                 )
-            
-            # WEICHE (F2): Wenn das Format JSON oder XML ist und die Strukturprüfung bestanden wurde,
-            # wird die Semantikprüfung komplett übersprungen!
+
+            # SWITCH (F2): if the format is JSON or XML and structure check passed,
+            # semantic check is skipped entirely.
             return VerificationResult(
                 decision=ScoringDecision.OUTPUT,
                 structure_result=structure_result,
@@ -139,7 +139,7 @@ class VerificationEngine:
                 output_format=fmt,
             )
 
-        # --- Semantikprüfung ---
+        # --- Semantic check ---
         s1: CheckResult | None = None
         s2: CheckResult | None = None
         s3: CheckResult | None = None
@@ -153,7 +153,7 @@ class VerificationEngine:
                 tiebreak_passed = s3.level == ScoreLevel.HIGH
                 decision = self._scorer.decide_after_tiebreak(tiebreak_passed)
         else:
-            # Nur Strukturprüfung aktiv (F18) — semantisch unklar → OUTPUT
+            # Only structure check active (F18) — semantically unclear → OUTPUT
             decision = ScoringDecision.OUTPUT
 
         result = VerificationResult(
@@ -174,9 +174,9 @@ class VerificationEngine:
         context:     SessionContext,
     ) -> tuple[CheckResult, CheckResult]:
         """
-        Führt Layer 1 und Layer 2 parallel aus.
-        Layer 2 macht einen Netzwerkaufruf (Embedding-API) — Parallelisierung
-        hält die Latenz unter der Summe beider Einzelaufrufe.
+        Runs Layer 1 and Layer 2 in parallel.
+        Layer 2 makes a network call (embedding API) — parallelization
+        keeps latency below the sum of both individual calls.
         """
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
             f1 = pool.submit(self._layer1.check, output, fingerprint, context)

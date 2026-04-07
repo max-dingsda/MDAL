@@ -1,10 +1,10 @@
 """
-Fingerprint Store — versionierte Speicherung mit Rollback (F7, F3).
+Fingerprint Store — versioned storage with rollback (F7, F3).
 
-Verzeichnisstruktur pro Sprache:
+Directory structure per language:
     {base_path}/
       de/
-        current      ← Textdatei mit aktiver Versionsnummer ("3")
+        current      ← text file with the active version number ("3")
         v1.json
         v2.json
         v3.json
@@ -12,16 +12,16 @@ Verzeichnisstruktur pro Sprache:
         current
         v1.json
 
-Das Format ist bewusst einfach: eine JSON-Datei pro Version, ein Pointer auf
-die aktive Version.
+The format is deliberately simple: one JSON file per version, one pointer to
+the active version.
 
-Locking-Strategie (CR-Finding #2):
-  Schreiboperationen (save, rollback) halten einen exklusiven FileLock auf
-  einer sprachspezifischen Lock-Datei ({base}/.{language}.lock).
-  load_current hält denselben Lock beim Lesen, um das TOCTOU-Race zwischen
-  _read_pointer() und load_version() zu schließen.
-  Einfache Lesezugriffe auf eine feste Version (load_version, list_versions)
-  benötigen keinen Lock — sie greifen auf unveränderliche Dateien zu.
+Locking strategy (CR-Finding #2):
+  Write operations (save, rollback) hold an exclusive FileLock on a
+  language-specific lock file ({base}/.{language}.lock).
+  load_current holds the same lock during reading to close the TOCTOU race
+  between _read_pointer() and load_version().
+  Simple reads of a fixed version (load_version, list_versions) do not
+  require a lock — they access immutable files.
 """
 
 from __future__ import annotations
@@ -34,25 +34,25 @@ from mdal.fingerprint.models import Fingerprint
 
 
 class FingerprintStoreError(Exception):
-    """Basis für alle Store-spezifischen Fehler."""
+    """Base for all store-specific errors."""
 
 
 class FingerprintNotFoundError(FingerprintStoreError):
-    """Kein Fingerprint für diese Sprache / Version vorhanden."""
+    """No fingerprint available for this language / version."""
 
 
 class FingerprintStore:
     """
-    Versionierter, dateisystembasierter Fingerprint-Store.
+    Versioned, filesystem-based fingerprint store.
 
-    Jede Sprache hat ihr eigenes Unterverzeichnis.
-    Jede Version ist eine eigenständige JSON-Datei.
-    Die aktive Version zeigt eine Pointer-Datei (`current`).
+    Each language has its own subdirectory.
+    Each version is a standalone JSON file.
+    A pointer file (`current`) indicates the active version.
 
-    Rollback (F7): Pointer auf beliebige frühere Version setzen.
+    Rollback (F7): set the pointer to any earlier version.
 
-    Thread- und Prozess-Sicherheit wird über sprachspezifische FileLocks
-    sichergestellt. Parallele HTTP-Requests lesen konsistente Pointer-Zustände.
+    Thread and process safety is ensured via language-specific FileLocks.
+    Concurrent HTTP requests read consistent pointer states.
     """
 
     def __init__(self, base_path: str | Path) -> None:
@@ -60,17 +60,17 @@ class FingerprintStore:
         self._base.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
-    # Schreiben
+    # Write
     # ------------------------------------------------------------------
 
     def save(self, fingerprint: Fingerprint) -> int:
         """
-        Speichert einen Fingerprint als neue Version.
+        Saves a fingerprint as a new version.
 
-        Die Versionsnummer wird automatisch vergeben (letzte + 1).
-        Der neue Fingerprint wird sofort zur aktiven Version.
+        The version number is assigned automatically (last + 1).
+        The new fingerprint immediately becomes the active version.
 
-        Gibt die vergebene Versionsnummer zurück.
+        Returns the assigned version number.
         """
         lang_dir = self._lang_dir(fingerprint.language)
         lang_dir.mkdir(parents=True, exist_ok=True)
@@ -87,48 +87,48 @@ class FingerprintStore:
 
     def rollback(self, language: str, version: int) -> None:
         """
-        Setzt den aktiven Fingerprint auf eine frühere Version zurück (F7).
+        Rolls back the active fingerprint to an earlier version (F7).
 
-        Wirft FingerprintNotFoundError wenn die Version nicht existiert.
+        Raises FingerprintNotFoundError if the version does not exist.
         """
         with FileLock(self._lock_path(language)):
             if not self._version_file(language, version).exists():
                 raise FingerprintNotFoundError(
-                    f"Fingerprint-Version {version} für Sprache '{language}' nicht gefunden."
+                    f"Fingerprint version {version} for language '{language}' not found."
                 )
             self._write_pointer(language, version)
 
     # ------------------------------------------------------------------
-    # Lesen
+    # Read
     # ------------------------------------------------------------------
 
     def load_current(self, language: str) -> Fingerprint:
         """
-        Lädt den aktuell aktiven Fingerprint für die gegebene Sprache.
+        Loads the currently active fingerprint for the given language.
 
-        Hält den Lock für die gesamte Pointer-Lese + Versions-Lade-Sequenz,
-        um das TOCTOU-Race zu vermeiden.
+        Holds the lock for the entire pointer-read + version-load sequence
+        to avoid the TOCTOU race.
 
-        Wirft FingerprintNotFoundError wenn kein Fingerprint vorhanden.
+        Raises FingerprintNotFoundError if no fingerprint is available.
         """
         with FileLock(self._lock_path(language)):
             version = self._read_pointer(language)
             return self.load_version(language, version)
 
     def load_version(self, language: str, version: int) -> Fingerprint:
-        """Lädt eine spezifische Fingerprint-Version."""
+        """Loads a specific fingerprint version."""
         path = self._version_file(language, version)
         if not path.exists():
             raise FingerprintNotFoundError(
-                f"Fingerprint v{version} für Sprache '{language}' nicht gefunden "
+                f"Fingerprint v{version} for language '{language}' not found "
                 f"({path})"
             )
         return Fingerprint.from_json(path.read_text(encoding="utf-8"))
 
     def list_versions(self, language: str) -> list[int]:
         """
-        Gibt alle vorhandenen Versionsnummern für eine Sprache zurück,
-        aufsteigend sortiert.
+        Returns all available version numbers for a language,
+        sorted in ascending order.
         """
         lang_dir = self._lang_dir(language)
         if not lang_dir.exists():
@@ -141,25 +141,25 @@ class FingerprintStore:
         return sorted(versions)
 
     def current_version(self, language: str) -> int | None:
-        """Gibt die aktive Versionsnummer zurück, oder None wenn kein Fingerprint."""
+        """Returns the active version number, or None if no fingerprint exists."""
         pointer = self._pointer_file(language)
         if not pointer.exists():
             return None
         return int(pointer.read_text(encoding="utf-8").strip())
 
     def has_fingerprint(self, language: str) -> bool:
-        """Prüft ob ein aktiver Fingerprint für die Sprache vorhanden ist."""
+        """Checks whether an active fingerprint exists for the language."""
         return self.current_version(language) is not None
 
     # ------------------------------------------------------------------
-    # Internes
+    # Internal
     # ------------------------------------------------------------------
 
     def _lang_dir(self, language: str) -> Path:
         return self._base / language
 
     def _lock_path(self, language: str) -> Path:
-        """Lock-Datei liegt im base-Verzeichnis, einmal pro Sprache."""
+        """Lock file lives in the base directory, one per language."""
         return self._base / f".{language}.lock"
 
     def _version_file(self, language: str, version: int) -> Path:
@@ -172,8 +172,8 @@ class FingerprintStore:
         pointer = self._pointer_file(language)
         if not pointer.exists():
             raise FingerprintNotFoundError(
-                f"Kein aktiver Fingerprint für Sprache '{language}'. "
-                f"Trainer ausführen um einen Fingerprint zu erstellen."
+                f"No active fingerprint for language '{language}'. "
+                f"Run the trainer to create one."
             )
         return int(pointer.read_text(encoding="utf-8").strip())
 

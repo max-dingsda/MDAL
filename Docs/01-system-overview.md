@@ -1,48 +1,48 @@
-# Systemüberblick
+# System Overview
 
-## Was das Repo tatsächlich implementiert
+## What this Repository Actually Implements
 
-Das Projekt implementiert einen **Model-agnostic Delivery Assurance Layer** zwischen Client und LLM. Der zentrale Mechanismus ist immer derselbe:
+The project implements a **Model-agnostic Delivery Assurance Layer** between client and LLM. The central mechanism is always the same:
 
-1. Client liefert Chat-Nachrichten.
-2. MDAL ruft ein LLM auf.
-3. MDAL prüft den vollständigen LLM Output.
-4. MDAL entscheidet zwischen:
-   - direkt ausgeben
-   - via LLM transformieren (inkl. Faktencheck und Confidence Scoring)
-   - erneuten LLM-Refinement-Call auslösen
-5. Bei ausgeschöpftem Retry-Limit wird **kein Output** an den Client ausgeliefert.
+1. The client submits chat messages.
+2. MDAL calls an LLM.
+3. MDAL evaluates the complete LLM output.
+4. MDAL decides between:
+   - delivering directly
+   - transforming via LLM (including fact-check and confidence scoring)
+   - triggering a new LLM refinement call
+5. When the retry limit is exhausted, **no output** is delivered to the client.
 
-## Zentrale fachliche Bausteine
+## Core Domain Components
 
 ### 1. Fingerprint
-Der gewünschte Zielstil wird als versionierter Fingerprint pro Sprache gespeichert.  
-Das Datenmodell liegt in `mdal/fingerprint/models.py` und umfasst drei Schichten:
+The desired target style is stored as a versioned fingerprint per language.
+The data model lives in `mdal/fingerprint/models.py` and comprises three layers:
 
-- **Layer 1:** deterministische Stilregeln
-- **Layer 2:** Embedding-Centroid des Zielstils
-- **Layer 3:** Golden Samples für LLM-as-Judge
+- **Layer 1:** deterministic style rules
+- **Layer 2:** embedding centroid of the target style
+- **Layer 3:** golden samples for LLM-as-Judge
 
-### 2. Verifikation
-Die Verifikation wird in `mdal/verification/engine.py` orchestriert und kombiniert:
+### 2. Verification
+Verification is orchestrated in `mdal/verification/engine.py` and combines:
 
-- optionale Strukturprüfung (`verification/structure.py`)
-- semantische Prüfung Layer 1 und 2 parallel
-- Layer 3 nur als Tiebreaker
-- finale Entscheidung via `verification/semantic/scorer.py`
+- optional structure checking (`verification/structure.py`)
+- semantic checking Layers 1 and 2 in parallel
+- Layer 3 only as a tiebreaker
+- final decision via `verification/semantic/scorer.py`
 
 ### 3. Transformation
-`mdal/transformer.py` implementiert eine **LLM-basierte** Tonanpassung (`LLMToneTransformer`).  
-Wichtig: Diese Transformation unterliegt strengen Regeln zur Faktentreue (Entity-Check) und bricht ab, wenn der Text zu stark verändert wird (Confidence Scoring).
+`mdal/transformer.py` implements an **LLM-based** tone adjustment (`LLMToneTransformer`).
+Important: this transformation is subject to strict rules regarding factual accuracy (entity check) and aborts if the text is altered too heavily (confidence scoring).
 
-### 4. Retry und Eskalation
-`mdal/retry.py` begrenzt die Anzahl der LLM-Aufrufe und eskaliert nach Erschöpfung des Limits über `mdal/notifier.py`.
+### 4. Retry and Escalation
+`mdal/retry.py` limits the number of LLM calls and escalates after the limit is exhausted via `mdal/notifier.py`.
 
 ### 5. Proxy
-`mdal/proxy/` kapselt die OpenAI-kompatible API-Oberfläche.  
-Der aktuelle Hauptendpunkt ist `POST /v1/chat/completions`.
+`mdal/proxy/` encapsulates the OpenAI-compatible API surface.
+The primary endpoint is `POST /v1/chat/completions`.
 
-## Architektur auf Modulebene
+## Architecture at Module Level
 
 ```mermaid
 flowchart LR
@@ -64,12 +64,12 @@ flowchart LR
     P --> A[AuditWriter]
 ```
 
-## Wichtige Designentscheidungen, die im Code sichtbar sind
+## Key Design Decisions Visible in the Code
 
-- **kein stiller Bypass:** unvollständige Konfiguration stoppt den Betrieb
-- **kein Streaming im Prüfkern:** MDAL verarbeitet nur vollständige Outputs
-- **Qualität vor Stil:** Faktentreue und Grammatik stehen zwingend über stilistischer Perfektion
-- **Hard Language Lock:** Sprachwechsel (Sprach-Drift) werden hart blockiert
-- **Fingerprint versioniert pro Sprache**
-- **Layer 3 nur bei Grenzfällen**
-- **Proxy ist OpenAI-kompatibel statt client-spezifisch**
+- **no silent bypass:** incomplete configuration stops operation
+- **no streaming in the verification core:** MDAL processes only complete outputs
+- **quality over style:** factual accuracy and grammar take mandatory precedence over stylistic perfection
+- **hard language lock:** language switches (language drift) are blocked unconditionally
+- **fingerprint versioned per language**
+- **Layer 3 only for edge cases**
+- **proxy is OpenAI-compatible rather than client-specific**

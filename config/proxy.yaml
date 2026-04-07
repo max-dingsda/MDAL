@@ -1,7 +1,7 @@
-# MDAL Proxy-Konfiguration — Phase 6 Pipeline-Test
+# MDAL Proxy Configuration — Phase 6 Pipeline Test
 llm:
   url: "http://localhost:11434"
-  model: "llama3.1:8b"      # gleiches Modell wie Trainer → Baseline
+  model: "llama3.1:8b"      # same model as trainer → baseline
   timeout: 120
 
 embedding:

@@ -1,4 +1,4 @@
-"""Unit-Tests für Semantic Layer 3 — LLM-as-Judge (CR-Finding #5: CoT-Format)."""
+"""Unit tests for Semantic Layer 3 — LLM-as-Judge (CR-Finding #5: CoT format)."""
 
 from unittest.mock import MagicMock
 
@@ -32,41 +32,41 @@ def make_context() -> SessionContext:
 
 
 # ---------------------------------------------------------------------------
-# _parse_judgment — CoT-Format (Urteil auf letzter Zeile)
+# _parse_judgment — CoT format (verdict on last line)
 # ---------------------------------------------------------------------------
 
 class TestParseJudgment:
-    def test_passt_alone(self):
-        assert _parse_judgment("PASST") is True
+    def test_matches_alone(self):
+        assert _parse_judgment("MATCHES") is True
 
-    def test_passt_nicht_alone(self):
-        assert _parse_judgment("PASST NICHT") is False
+    def test_does_not_match_alone(self):
+        assert _parse_judgment("DOES NOT MATCH") is False
 
-    def test_cot_passt_last_line(self):
+    def test_cot_matches_last_line(self):
         response = (
-            "Der Text verwendet eine sachliche, strukturierte Sprache.\n"
-            "PASST"
+            "The text uses a factual, structured style.\n"
+            "MATCHES"
         )
         assert _parse_judgment(response) is True
 
-    def test_cot_passt_nicht_last_line(self):
+    def test_cot_does_not_match_last_line(self):
         response = (
-            "Der Text ist zu informell und verwendet Umgangssprache.\n"
-            "PASST NICHT"
+            "The text is too informal and uses colloquial language.\n"
+            "DOES NOT MATCH"
         )
         assert _parse_judgment(response) is False
 
-    def test_lowercase_passt(self):
-        assert _parse_judgment("passt") is True
+    def test_lowercase_matches(self):
+        assert _parse_judgment("matches") is True
 
-    def test_lowercase_passt_nicht(self):
-        assert _parse_judgment("passt nicht") is False
+    def test_lowercase_does_not_match(self):
+        assert _parse_judgment("does not match") is False
 
-    def test_multiline_cot_passt(self):
+    def test_multiline_cot_matches(self):
         response = (
-            "Der Stil ist formal und entspricht dem Referenzniveau.\n"
-            "Die Satzstruktur und der Wortschatz passen gut zu den Beispielen.\n"
-            "PASST"
+            "The style is formal and corresponds to the reference level.\n"
+            "The sentence structure and vocabulary fit well with the examples.\n"
+            "MATCHES"
         )
         assert _parse_judgment(response) is True
 
@@ -74,16 +74,16 @@ class TestParseJudgment:
         assert _parse_judgment("") is False
 
     def test_unclear_response_returns_false(self):
-        assert _parse_judgment("Ich bin nicht sicher.") is False
+        assert _parse_judgment("I am not sure.") is False
 
     def test_whitespace_around_verdict(self):
-        assert _parse_judgment("  PASST  ") is True
-        assert _parse_judgment("  PASST NICHT  ") is False
+        assert _parse_judgment("  MATCHES  ") is True
+        assert _parse_judgment("  DOES NOT MATCH  ") is False
 
-    def test_passt_nicht_wins_over_passt(self):
-        # Wenn sowohl "PASST" als auch "PASST NICHT" im Text vorkommt:
-        # letzte Zeile gewinnt
-        response = "Abschnitt passt in Teilen.\nPASST NICHT"
+    def test_does_not_match_wins_over_matches(self):
+        # If both "MATCHES" and "DOES NOT MATCH" appear in the text:
+        # last line wins
+        response = "Some sections match partially.\nDOES NOT MATCH"
         assert _parse_judgment(response) is False
 
 
@@ -102,41 +102,41 @@ class TestLayer3LLMJudge:
         fp = make_fingerprint(samples=[])
         result = judge.check("test output", fp, make_context())
         assert result.level == ScoreLevel.MEDIUM
-        assert "Golden Samples" in result.details
+        assert "golden samples" in result.details.lower()
 
-    def test_passt_returns_high(self):
-        judge, _ = self._make_judge("Gute Begründung.\nPASST")
-        fp = make_fingerprint([("Frage", "Antwort")])
+    def test_matches_returns_high(self):
+        judge, _ = self._make_judge("Good reasoning.\nMATCHES")
+        fp = make_fingerprint([("Question", "Answer")])
         result = judge.check("test output", fp, make_context())
         assert result.level == ScoreLevel.HIGH
 
-    def test_passt_nicht_returns_low(self):
-        judge, _ = self._make_judge("Schlechte Begründung.\nPASST NICHT")
-        fp = make_fingerprint([("Frage", "Antwort")])
+    def test_does_not_match_returns_low(self):
+        judge, _ = self._make_judge("Poor reasoning.\nDOES NOT MATCH")
+        fp = make_fingerprint([("Question", "Answer")])
         result = judge.check("test output", fp, make_context())
         assert result.level == ScoreLevel.LOW
 
     def test_details_contain_reasoning(self):
-        judge, _ = self._make_judge("Der Stil passt gut.\nPASST")
-        fp = make_fingerprint([("Frage", "Antwort")])
+        judge, _ = self._make_judge("The style fits well.\nMATCHES")
+        fp = make_fingerprint([("Question", "Answer")])
         result = judge.check("test output", fp, make_context())
-        assert "PASST" in result.details
-        assert "Der Stil passt gut" in result.details
+        assert "MATCHES" in result.details
+        assert "The style fits well" in result.details
 
     def test_llm_called_with_samples_in_prompt(self):
-        judge, llm_mock = self._make_judge("PASST")
-        fp = make_fingerprint([("Meine Frage", "Meine Antwort")])
+        judge, llm_mock = self._make_judge("MATCHES")
+        fp = make_fingerprint([("My question", "My answer")])
         judge.check("output", fp, make_context())
         call_args = llm_mock.complete.call_args[0][0]
         prompt_text = call_args[0]["content"]
-        assert "Meine Antwort" in prompt_text
+        assert "My answer" in prompt_text
 
     def test_max_5_samples_in_prompt(self):
-        judge, llm_mock = self._make_judge("PASST")
-        # 7 Samples geben, nur 5 sollen im Prompt landen
+        judge, llm_mock = self._make_judge("MATCHES")
+        # Provide 7 samples — only 5 should appear in the prompt
         samples = [(f"Q{i}", f"A{i}") for i in range(7)]
         fp = make_fingerprint(samples)
         judge.check("output", fp, make_context())
         prompt_text = llm_mock.complete.call_args[0][0][0]["content"]
-        assert "A5" not in prompt_text   # Sample 6 nicht drin
-        assert "A4" in prompt_text       # Sample 5 noch drin
+        assert "A5" not in prompt_text   # sample 6 not included
+        assert "A4" in prompt_text       # sample 5 still included

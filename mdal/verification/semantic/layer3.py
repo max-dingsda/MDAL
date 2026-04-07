@@ -1,16 +1,16 @@
 """
 Semantic Layer 3 — LLM-as-Judge (SemanticCheckerProtocol).
 
-Höchste Präzision, höchste Kosten.
-Wird nur für Grenzfälle aufgerufen wenn S1 und S2 keinen eindeutigen Befund liefern
+Highest precision, highest cost.
+Only called for edge cases when S1 and S2 produce no unambiguous finding
 (ScoringDecision.TIEBREAK).
 
-Der Judge bekommt die Golden Samples aus dem Fingerprint als Kontext und
-entscheidet ob der zu prüfende Output stilistisch dazu passt.
-Antwort ist binär: "passt" → HIGH, "passt nicht" → LOW.
+The judge receives the golden samples from the fingerprint as context and
+decides whether the output under review matches them stylistically.
+Answer is binary: "matches" → HIGH, "does not match" → LOW.
 
-Zählt als LLM-Aufruf im Sinne der Retry-Logik (F5).
-Bleibt Python — direkter LLM-Call, kein Rust-Kandidat.
+Counts as an LLM call in terms of retry logic (F5).
+Stays in Python — direct LLM call, not a Rust candidate.
 """
 
 from __future__ import annotations
@@ -21,31 +21,31 @@ from mdal.interfaces.scoring import CheckResult, ScoreLevel
 from mdal.session import SessionContext
 
 _JUDGE_PROMPT = """\
-Du bist ein Stil-Gutachter. Deine Aufgabe ist es zu beurteilen ob ein Text \
-stilistisch zu einer Reihe von Referenzbeispielen passt.
+You are a style assessor. Your task is to judge whether a text \
+matches a set of reference examples stylistically.
 
-Referenzbeispiele (repräsentieren den gewünschten Stil):
+Reference examples (representing the desired style):
 {samples}
 
-Zu beurteilender Text:
+Text to assess:
 {output}
 
-Kriterien: Tonalität, Formalitätsniveau, Formulierungsstil, sprachliches Verhalten.
-Inhalt und Thema des Textes sind irrelevant — nur der Stil zählt.
+Criteria: tonality, formality level, phrasing style, linguistic behavior.
+The content and topic of the text are irrelevant — only style matters.
 
-Begründe dein Urteil in 1-2 Sätzen. Schreibe dann als letzte Zeile \
-ausschließlich eines der folgenden Wörter:
-  PASST
-  PASST NICHT
+Justify your verdict in 1-2 sentences. Then write as the last line \
+exclusively one of the following:
+  MATCHES
+  DOES NOT MATCH
 """
 
 
 class Layer3LLMJudge:
     """
-    Implementiert SemanticCheckerProtocol via LLM-as-Judge.
+    Implements SemanticCheckerProtocol via LLM-as-Judge.
 
-    Benötigt Fingerprint mit mindestens einem Golden Sample.
-    Wenn keine Golden Samples vorhanden: MEDIUM als konservatives Ergebnis.
+    Requires a fingerprint with at least one golden sample.
+    If no golden samples are present: MEDIUM as a conservative result.
     """
 
     def __init__(self, llm_adapter: LLMAdapterProtocol) -> None:
@@ -62,12 +62,12 @@ class Layer3LLMJudge:
         if not samples:
             return CheckResult(
                 level=ScoreLevel.MEDIUM,
-                details="Keine Golden Samples konfiguriert — konservatives MEDIUM.",
+                details="No golden samples configured — conservative MEDIUM.",
             )
 
         samples_text = "\n\n".join(
-            f"[Beispiel {i+1}]\nUser: {s.prompt}\nAssistent: {s.response}"
-            for i, s in enumerate(samples[:5])   # max. 5 Samples im Prompt
+            f"[Example {i+1}]\nUser: {s.prompt}\nAssistant: {s.response}"
+            for i, s in enumerate(samples[:5])   # max. 5 samples in prompt
         )
 
         prompt = _JUDGE_PROMPT.format(
@@ -78,40 +78,40 @@ class Layer3LLMJudge:
         raw = self._llm.complete([{"role": "user", "content": prompt}])
         passed = _parse_judgment(raw)
 
-        # Begründung aus der CoT-Antwort extrahieren (alle Zeilen außer dem Urteil)
+        # Extract reasoning from CoT response (all lines except the verdict)
         lines = [l.strip() for l in raw.strip().splitlines() if l.strip()]
         reasoning = " ".join(lines[:-1]) if len(lines) > 1 else ""
 
         return CheckResult(
             level=ScoreLevel.HIGH if passed else ScoreLevel.LOW,
-            details=f"LLM-Judge: {'PASST' if passed else 'PASST NICHT'}"
+            details=f"LLM-Judge: {'MATCHES' if passed else 'DOES NOT MATCH'}"
                     + (f" — {reasoning[:120]}" if reasoning else ""),
         )
 
 
 def _parse_judgment(response: str) -> bool:
     """
-    Parst die LLM-Judge-Antwort mit CoT-Format (CR-Finding #5).
+    Parses the LLM-Judge response in CoT format (CR-Finding #5).
 
-    Das Urteil steht am Ende der Antwort (letzte nicht-leere Zeile).
-    Robust gegenüber Leerzeichen und Groß-/Kleinschreibung.
-    Fallback: konservativ als nicht-passend werten wenn unklar.
+    The verdict appears at the end of the response (last non-empty line).
+    Robust against whitespace and case variations.
+    Fallback: conservatively treat as non-matching if unclear.
     """
     lines = [line.strip() for line in response.strip().splitlines() if line.strip()]
     if not lines:
         return False
 
     last = lines[-1].upper()
-    if last == "PASST NICHT" or last.startswith("PASST NICHT"):
+    if last == "DOES NOT MATCH" or last.startswith("DOES NOT MATCH"):
         return False
-    if last == "PASST" or last.startswith("PASST"):
+    if last == "MATCHES" or last.startswith("MATCHES"):
         return True
 
-    # Fallback: gesamten Text nach "PASST NICHT" / "PASST" durchsuchen
+    # Fallback: search entire text for "DOES NOT MATCH" / "MATCHES"
     text = response.upper()
-    if "PASST NICHT" in text:
+    if "DOES NOT MATCH" in text:
         return False
-    if "PASST" in text:
+    if "MATCHES" in text:
         return True
 
     return False

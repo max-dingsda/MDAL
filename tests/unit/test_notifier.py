@@ -1,4 +1,4 @@
-"""Unit-Tests für AdminNotifier."""
+"""Unit tests for AdminNotifier."""
 
 import json
 from pathlib import Path
@@ -63,7 +63,7 @@ class TestAdminNotifierLog:
         notifier = AdminNotifier(NotifierConfig())
         with caplog.at_level(logging.WARNING, logger="mdal.notifier"):
             notifier.notify_escalation("s", 1, "e")
-        assert any("kein log_path" in r.message for r in caplog.records)
+        assert any("no log_path" in r.message for r in caplog.records)
 
 
 class TestAdminNotifierWebhook:
@@ -93,7 +93,7 @@ class TestAdminNotifierWebhook:
             mock_client_cls.return_value.__exit__  = MagicMock(return_value=False)
             mock_client.post.side_effect = Exception("connection refused")
 
-            # Darf nicht werfen
+            # Must not raise
             notifier.notify_escalation("s", 1, "err")
 
     def test_no_webhook_url_skips_http_call(self, tmp_path):

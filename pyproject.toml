@@ -20,7 +20,7 @@ dependencies = [
     "lxml>=5.2",
     # JSON schema validation
     "jsonschema>=4.22",
-    # Thread-/Prozess-sicheres Locking für den FingerprintStore
+    # Thread-/process-safe locking for FingerprintStore
     "filelock>=3.14",
 ]
 

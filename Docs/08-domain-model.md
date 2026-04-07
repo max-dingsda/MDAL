@@ -1,107 +1,107 @@
-# Fachliches Domänenmodell
+# Domain Model
 
-## Zweck von MDAL
+## Purpose of MDAL
 
-MDAL wurde entwickelt, um Anwendungen von Schwankungen zugrunde liegender Large Language Models zu entkoppeln. Sprachmodelle verändern ihr Verhalten über Modellwechsel, Versionswechsel, Konfigurationsänderungen oder Anbieterwechsel hinweg. Ohne eine ausgleichende Zwischenschicht führt das zu einem instabilen Nutzererlebnis: Antworten können sich im Stil, in der Struktur, in der Vollständigkeit oder in der Zuverlässigkeit merklich verschieben, obwohl die Anwendung selbst unverändert geblieben ist.
+MDAL was developed to decouple applications from fluctuations in underlying large language models. Language models change their behavior across model upgrades, version changes, configuration updates, or provider switches. Without a compensating intermediate layer, this leads to an unstable user experience: responses may shift noticeably in style, structure, completeness, or reliability, even though the application itself has not changed.
 
-MDAL adressiert dieses Problem, indem Modellantworten nicht ungeprüft weitergereicht, sondern gegen ein bekanntes Referenzniveau bewertet werden. Ziel ist nicht, bei jedem Aufruf identische Antworten zu erzwingen. Ziel ist vielmehr, ein stabiles, erwartbares Qualitätsniveau sicherzustellen und wahrnehmbare Model-Shift-Effekte für den Nutzer zu reduzieren.
+MDAL addresses this problem by not passing model responses through unverified, but evaluating them against a known reference level. The goal is not to enforce identical responses on every call. The goal is rather to ensure a stable, predictable quality level and to reduce perceptible model-shift effects for the user.
 
-Wichtig ist dabei die fachliche Abgrenzung: MDAL führt nicht pauschal eine inhaltliche Qualitätsprüfung jedes Ergebnisses durch. Bei freier Prosa erfolgt primär eine Prüfung auf Stiltreue zum Referenzniveau und bei Bedarf eine Transformation. Eine weitergehende qualitative oder fachliche Prüfung findet nur dann statt, wenn für den jeweiligen strukturierten Inhalt ein passendes Prüfplugin vorhanden ist. Ein ArchiMate-XML kann beispielsweise nur dann fachlich oder formal validiert werden, wenn das entsprechende Schema bzw. Plugin verfügbar ist.
+An important domain boundary applies: MDAL does not perform a blanket content quality check of every result. For free-form prose the primary check is style fidelity against the reference level, with transformation applied if needed. Further qualitative or domain-specific validation only takes place where a matching validation plugin is available for the respective structured content. An ArchiMate XML, for example, can only be validated formally or domain-specifically if the corresponding schema or plugin is available.
 
-## Fachliche Rolle im Gesamtsystem
+## Domain Role in the Overall System
 
-Fachlich ist MDAL eine Qualitäts- und Stabilisierungsschicht zwischen konsumierender Anwendung und Sprachmodell. Diese Schicht übernimmt insbesondere folgende Verantwortungen:
+From a domain perspective, MDAL is a quality and stabilization layer between the consuming application and the language model. This layer assumes the following responsibilities in particular:
 
-- Dämpfung von Model-Shift-Effekten
-- Bewertung von Antworten gegen ein bekanntes Referenzniveau
-- Stilprüfung freier Prosa und ggf. Transformation
-- Validierung strukturierter Inhalte über Plugins, sofern passende Prüfbasis vorliegt
-- kontrollierte Nachbesserung bei Abweichungen
-- geregelte Eskalation bei nicht behebbaren Verstößen
+- dampening model-shift effects
+- evaluating responses against a known reference level
+- style checking of free-form prose and transformation if needed
+- validation of structured content via plugins where a matching verification basis is available
+- controlled remediation of deviations
+- regulated escalation for unresolvable violations
 
-MDAL übernimmt bewusst nicht die fachliche Verantwortung der konsumierenden Anwendung. Es ersetzt weder Geschäftslogik noch Domänenregeln des aufrufenden Systems. Es stabilisiert und kontrolliert die Interaktion mit dem Modell.
+MDAL deliberately does not assume the domain responsibility of the consuming application. It replaces neither business logic nor domain rules of the calling system. It stabilizes and controls the interaction with the model.
 
-## Zentrale Fachobjekte
+## Core Domain Objects
 
 ### MDAL Request
 
-Der MDAL Request ist die fachliche Einheit, mit der eine Anwendung eine Modellverarbeitung anstößt. Er enthält die Nutzereingabe, den Ausführungskontext sowie gegebenenfalls zusätzliche Steuerinformationen für Verifikation und Laufzeitverhalten.
+The MDAL request is the domain unit with which an application triggers a model processing run. It contains the user input, the execution context, and any additional control information for verification and runtime behavior.
 
 ### Fingerprint
 
-Der Fingerprint ist das zentrale Referenzobjekt von MDAL. Fachlich beschreibt er ein akzeptiertes Zielniveau, gegen das Modellantworten bewertet werden. Dazu können unter anderem sprachlicher Stil, Strukturmerkmale, Vollständigkeitserwartungen oder typische Antwortcharakteristika gehören.
+The fingerprint is the central reference object of MDAL. From a domain perspective it describes an accepted target level against which model responses are evaluated. This may include linguistic style, structural characteristics, completeness expectations, or typical response characteristics.
 
-Ein Fingerprint ist keine bloße Prompt-Vorlage. Er ist auch nicht einfach mit Few-Shot-Beispielen oder einer Policy gleichzusetzen. Er ist eine operationalisierte Referenz für erwartbares Modellverhalten.
+A fingerprint is not a mere prompt template. It is also not simply equivalent to few-shot examples or a policy. It is an operationalized reference for expected model behavior.
 
-Wesentliche Eigenschaften:
-- versionsgebunden, da Referenzniveaus zu bestimmten Modellständen gehören
-- kontextgebunden, da unterschiedliche Anwendungsfälle unterschiedliche Zielniveaus benötigen
-- potenziell sprachgebunden, sofern sprachspezifische Qualitätsmerkmale relevant sind
-- nur dann fachlich nützlich, wenn er reproduzierbar trainiert, gespeichert und referenziert werden kann
+Key properties:
+- version-bound, since reference levels belong to particular model states
+- context-bound, since different use cases require different target levels
+- potentially language-bound, where language-specific quality characteristics are relevant
+- only domain-useful if it can be reproducibly trained, stored, and referenced
 
 ### Verification Result
 
-Das Verification Result fasst das Ergebnis der Prüfung zusammen. Es dokumentiert, ob eine Antwort akzeptiert wurde, welche Abweichungen erkannt wurden und welche Folgemaßnahme daraus entsteht.
+The verification result summarizes the outcome of the check. It documents whether a response was accepted, which deviations were detected, and which follow-up action results from this.
 
-Typische fachliche Inhalte:
-- akzeptiert oder nicht akzeptiert
-- erkannte Stilabweichungen gegenüber dem Referenzniveau
-- Hinweise für Transformation oder Nachbesserung
-- plugin-basierte Validierungsergebnisse, sofern vorhanden
-- Grundlage für Retry oder Eskalation
+Typical domain content:
+- accepted or not accepted
+- detected style deviations from the reference level
+- indications for transformation or remediation
+- plugin-based validation results, where available
+- basis for retry or escalation
 
 ### Session Context
 
-Der Session Context hält flüchtige Informationen vor, die innerhalb des Retry-Loops eines einzelnen Requests zur Konsistenz beitragen. Er lebt ausschließlich für die Dauer dieses Retry-Loops und wird danach verworfen. MDAL ist konversationslos — die vorgelagerte Anwendung verwaltet den Konversationskontext selbst.
+The session context holds transient information that contributes to consistency within the retry loop of a single request. It exists exclusively for the duration of that retry loop and is discarded afterwards. MDAL is conversation-less — the upstream application manages conversation context itself.
 
-Das ist insbesondere relevant für:
-- konsistente Fingerprint-Anwendung über Initial-Response und Refinements innerhalb desselben Requests
-- Nachvollziehbarkeit der Prüfentscheidungen im Retry-Verlauf
+This is particularly relevant for:
+- consistent fingerprint application across initial response and refinements within the same request
+- traceability of verification decisions during the retry cycle
 
-### Retry und Escalation
+### Retry and Escalation
 
-Retry und Escalation sind keine technischen Nebeneffekte, sondern fachlich definierte Reaktionen auf Abweichungen.
+Retry and escalation are not technical side effects, but domain-defined reactions to deviations.
 
-- Retry bedeutet: eine Antwort ist noch nicht akzeptabel, kann aber voraussichtlich durch erneute Generierung oder gezielte Nachbesserung verbessert werden.
-- Escalation bedeutet: das System verlässt den normalen Qualitätskreislauf, weil ein akzeptables Ergebnis innerhalb der vorgesehenen Grenzen nicht erreicht werden konnte.
+- Retry means: a response is not yet acceptable, but can presumably be improved through a new generation or targeted remediation.
+- Escalation means: the system leaves the normal quality loop because an acceptable result could not be achieved within the defined limits.
 
-## Domänenmodell im Überblick
+## Domain Model Overview
 
 ```mermaid
 flowchart TD
-    A[Anwendung] --> B[MDAL Request]
+    A[Application] --> B[MDAL Request]
     B --> C[Runtime Pipeline]
     C --> D[LLM Response]
     D --> E[Verification Result]
-    E --> F{Akzeptiert?}
-    F -- Ja --> G[Antwort an Anwendung]
-    F -- Nein --> H{Retry sinnvoll?}
-    H -- Ja --> I[Retry / Transformation]
+    E --> F{Accepted?}
+    F -- Yes --> G[Response to Application]
+    F -- No --> H{Retry Useful?}
+    H -- Yes --> I[Retry / Transformation]
     I --> C
-    H -- Nein --> J[Eskalation]
+    H -- No --> J[Escalation]
 
-    C -. nutzt .-> K[Fingerprint]
-    C -. nutzt .-> L[Session Context]
-    D -. bei strukturierten Inhalten .-> M[Validation Plugin]
-    M -. liefert .-> E
+    C -. uses .-> K[Fingerprint]
+    C -. uses .-> L[Session Context]
+    D -. for structured content .-> M[Validation Plugin]
+    M -. provides .-> E
 ```
 
 ## Quality Gates & Defensive Strategies
 
-Um MDAL von einer "aggressiven Anpassung" in eine "defensive Normalisierung" ("Demut des Systems") zu überführen, werden drei neue Quality Gates als verbindliche Anforderungen für die Runtime Pipeline verankert:
+To transition MDAL from "aggressive adaptation" to "defensive normalization" (system humility), three quality gates are anchored as mandatory requirements for the runtime pipeline:
 
-### Säule A: Subject-Guardrail
-* **Anforderung:** Der Transformer muss Topic-Anker aus dem Original-Prompt extrahieren (z.B. "Führungskraft").
-* **Validierung:** MDAL verwirft die Transformation, wenn das Hauptsubjekt im Output durch Begriffe aus dem Profil-Kontext (z.B. "Dienstleister") ersetzt wurde.
+### Pillar A: Subject Guardrail
+* **Requirement:** The transformer must extract topic anchors from the original prompt (e.g. "executive").
+* **Validation:** MDAL discards the transformation if the main subject in the output has been replaced by terms from the profile context (e.g. "service provider").
 
-### Säule B: Short-Text-Bypass
-* **Anforderung:** Einführung einer automatischen Längenerkennung im MDAL Request.
-* **Logik:** Wenn der Raw-Output < 300 Zeichen ist, werden starre Strukturvorgaben (Einleitung/Fazit) des Fingerprints deaktiviert, um unnötige N/A-Eskalationen zu verhindern.
+### Pillar B: Short-Text Bypass
+* **Requirement:** Introduction of automatic length detection in the MDAL Request.
+* **Logic:** If the raw output is < 300 characters, rigid structural requirements (introduction/conclusion) from the fingerprint are deactivated to prevent unnecessary N/A escalations.
 
-### Säule C: Minimal-Invasive Transformation ("The Demure Mode")
-* **Design-Prinzip:** In den Domänen `CREATIVE` und `DIALOG` wechselt MDAL von "Rewrite" auf "Repair".
-* **Priorisierung:** Grammatikalische Korrektheit hat absoluten Vorrang vor der Stiltreue. Verändere im Zweifel lieber gar nichts am Stil, wenn die Transformation unnatürlich wirkt.
+### Pillar C: Minimal-Invasive Transformation ("The Demure Mode")
+* **Design Principle:** In the `CREATIVE` and `DIALOG` domains, MDAL switches from "rewrite" to "repair".
+* **Prioritization:** Grammatical correctness takes absolute precedence over style fidelity. When in doubt, leave the style unchanged rather than produce an unnatural transformation.
 
-## Fachliche Kernaussage
+## Core Domain Statement
 
-MDAL ist fachlich kein gewöhnlicher Proxy für Modellaufrufe. Die eigentliche Leistung besteht darin, ein instabiles, vom Modell abhängiges Antwortverhalten in einen kontrollierten und bewertbaren Verarbeitungsprozess zu überführen. Der Fingerprint liefert dabei das Referenzniveau für Stil und erwartbares Antwortverhalten. Eine weitergehende fachliche oder formale Validierung erfolgt nur dort, wo passende Prüfplugins vorhanden sind.
+MDAL is not an ordinary proxy for model calls. Its actual contribution is transforming unstable, model-dependent response behavior into a controlled and evaluable processing pipeline. The fingerprint provides the reference level for style and expected response behavior. Further domain-specific or formal validation occurs only where matching validation plugins are available.

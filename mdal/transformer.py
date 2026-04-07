@@ -1,16 +1,16 @@
 """
-Regelbasierter Ton-Transformer (F10).
+Tone transformer (F10).
 
-Passt ausschließlich Tonalität und Formulierungsstil an.
-Kein LLM-Aufruf — zählt daher NICHT als Retry (F5).
+Adjusts tone and phrasing style only.
+No LLM call for RuleBasedToneTransformer — does NOT count as a retry (F5).
 
-Invarianten (F10):
-  - Reihenfolge von Aussagen bleibt erhalten
-  - Hierarchie und Aufzählungsstruktur bleibt erhalten
-  - Vollständigkeit: kein Inhalt wird hinzugefügt oder entfernt
-  - Nur Wortebene: informelle Füllwörter entfernen / ersetzen
+Invariants (F10):
+  - order of statements is preserved
+  - hierarchy and list structure is preserved
+  - completeness: no content is added or removed
+  - word level only: remove / replace informal filler words
 
-Implementiert ToneTransformerProtocol → Rust-Kern (Zielarchitektur).
+Implements ToneTransformerProtocol → Rust core (target architecture).
 """
 
 from __future__ import annotations
@@ -25,58 +25,58 @@ from mdal.interfaces.llm import LLMAdapterProtocol
 logger = logging.getLogger(__name__)
 
 _TRANSFORM_PROMPT = """\
-Deine Aufgabe ist es, einen Text anzupassen. Dabei gilt folgende STRIKTE Priorität (wichtigste zuerst):
+Your task is to adapt a text. The following STRICT priority applies (most important first):
 
-1. SPRACHQUALITÄT: Die Grammatik muss einwandfrei, flüssig und natürlich sein. Erfinde KEINE neuen Wörter oder unnatürlichen Komposita (Neologismen). Fremdsprachliche Fachbegriffe z.B. aus der IT sind erlaubt.
-2. FAKTENTREUE: Alle Fakten, Zahlen, Entitäten und Sinnzusammenhänge aus dem Original-Text MÜSSEN exakt erhalten bleiben. Erfinde nichts dazu, lasse nichts weg. Behalte Listen und Reihenfolgen exakt bei.
-3. STIL-ANPASSUNG: Passe den Text an folgende Stil-Vorgaben an, ABER NUR, wenn es Priorität 1 und 2 nicht verletzt!
+1. LANGUAGE QUALITY: Grammar must be flawless, fluent, and natural. Do NOT invent new words or unnatural compound words (neologisms). Foreign technical terms (e.g. from IT) are permitted.
+2. FACTUAL ACCURACY: All facts, numbers, entities, and logical connections from the original text MUST be preserved exactly. Add nothing, omit nothing. Preserve lists and their order exactly.
+3. STYLE ADAPTATION: Adapt the text to the style requirements below, BUT ONLY if it does not violate priorities 1 and 2.
 
-ERKANNTE TEXT-DOMÄNE: {domain}
-(WICHTIG: Wenn die Domäne TECHNICAL oder CREATIVE ist, VERWENDE AUF KEINEN FALL deplatzierte Business-Begriffe wie "Dienstleister" oder "Vertragsverhandlung" in deinen Anpassungen!)
+DETECTED TEXT DOMAIN: {domain}
+(IMPORTANT: If the domain is TECHNICAL or CREATIVE, do NOT use out-of-place business terms like "service provider" or "contract negotiation" in your adaptations!)
 
-Vorgaben (für Priorität 3):
-- Formalitätslevel: {formality} (1=sehr informell, 5=sehr formal/akademisch)
-- Bevorzugtes Vokabular: {preferred} (WICHTIG: Verwende diese Wörter NUR, wenn sie inhaltlich zum Thema passen! Zwinge sie nicht in sachfremde Themen!)
-- Vermiedenes Vokabular: {avoided}
+Requirements (for priority 3):
+- Formality level: {formality} (1=very informal, 5=very formal/academic)
+- Preferred vocabulary: {preferred} (IMPORTANT: Only use these words if they fit the content! Do not force them into unrelated topics!)
+- Avoided vocabulary: {avoided}
 
-- Antworte AUSSCHLIESSLICH mit dem transformierten Text, ohne Einleitung oder Erklärung.
+- Respond EXCLUSIVELY with the transformed text, without introduction or explanation.
 
-Original-Text:
+Original text:
 {text}
 """
 
 _VALIDATION_PROMPT = """\
-Vergleiche Text A (Original) und Text B (Transformiert).
+Compare Text A (original) and Text B (transformed).
 
 Text A (Original):
 {original}
 
-Text B (Transformiert):
+Text B (Transformed):
 {transformed}
 
-Prüfe STRENG:
-1. Enthält Text B noch alle Fakten, Zahlen, Eigennamen, Orte und Zeiten aus Text A?
-2. Ist die Sprache in Text B natürlich und enthält KEINE erfundenen Wörter (Neologismen) oder völlig deplatzierte Vokabeln (Context-Leak)?
-Antworte AUSSCHLIESSLICH mit "TRUE" (wenn Fakten da sind UND Grammatik perfekt ist) oder "FALSE" (wenn etwas fehlt, erfunden wurde oder unnatürlich ist). Keine Erklärungen.
+Check STRICTLY:
+1. Does Text B still contain all facts, numbers, proper names, places, and times from Text A?
+2. Is the language in Text B natural and does it contain NO invented words (neologisms) or completely out-of-place vocabulary (context leak)?
+Respond EXCLUSIVELY with "TRUE" (if facts are present AND grammar is perfect) or "FALSE" (if anything is missing, invented, or unnatural). No explanations.
 """
 
 _CORRECTION_PROMPT = """\
-Deine letzte Transformation war fehlerhaft (Fakten verändert, unnatürliche Grammatik/Neologismen, oder deplatziertes Vokabular). Hier ist nochmal der Original-Text:
+Your last transformation was faulty (facts changed, unnatural grammar/neologisms, or out-of-place vocabulary). Here is the original text again:
 {text}
 
-Vorgaben: Formalitätslevel {formality}, Bevorzugt: {preferred}, Vermieden: {avoided}.
+Requirements: formality level {formality}, preferred: {preferred}, avoided: {avoided}.
 
-Transformiere den Text stilistisch, aber behalte JEDEN FAKT und JEDE ZAHL zu 100% bei. Erfinde nichts dazu!
-Antworte AUSSCHLIESSLICH mit dem korrigierten Text, ohne Einleitung oder Erklärung.
+Transform the text stylistically, but preserve EVERY FACT and EVERY NUMBER 100%. Add nothing!
+Respond EXCLUSIVELY with the corrected text, without introduction or explanation.
 """
 
 class LLMToneTransformer:
     """
-    LLM-basierter Ton-Transformer (F10).
+    LLM-based tone transformer (F10).
 
-    Passt Tonalität und Formulierungsstil mithilfe eines LLM an.
-    Vermeidet grammatikalische Artefakte, die bei regelbasiertem Regex-Ersetzen
-    in stark flektierenden Sprachen (wie Deutsch) entstehen.
+    Adjusts tone and phrasing style using an LLM.
+    Avoids grammatical artifacts that arise with rule-based regex replacement
+    in heavily inflected languages (such as German).
     """
 
     def __init__(self, llm_adapter: LLMAdapterProtocol) -> None:
@@ -84,9 +84,9 @@ class LLMToneTransformer:
 
     def transform(self, text: str, fingerprint: Fingerprint, domain: str = "DEFAULT") -> str:
         rules = fingerprint.layer1
-        
-        preferred = ", ".join(rules.preferred_vocabulary) if rules.preferred_vocabulary else "Keine spezifischen Vorgaben"
-        avoided = ", ".join(rules.avoided_vocabulary) if rules.avoided_vocabulary else "Keine spezifischen Vorgaben"
+
+        preferred = ", ".join(rules.preferred_vocabulary) if rules.preferred_vocabulary else "No specific requirements"
+        avoided = ", ".join(rules.avoided_vocabulary) if rules.avoided_vocabulary else "No specific requirements"
 
         current_prompt = _TRANSFORM_PROMPT.format(
             domain=domain,
@@ -95,59 +95,59 @@ class LLMToneTransformer:
             avoided=avoided,
             text=text
         )
-        
+
         max_attempts = 2
-        
+
         for attempt in range(max_attempts):
             try:
-                # 1. Transformation durchführen
+                # 1. Perform transformation
                 result = self._llm.complete([{"role": "user", "content": current_prompt}]).strip()
-                
-                # F10: Confidence Scoring (Schutz vor Kaputtoptimierung)
-                # Wenn mehr als 30% des Textes verändert wurden, greift die "Demut"-Regel.
+
+                # F10: Confidence scoring (protection against over-optimization).
+                # If more than 30% of the text was changed, the "demure" rule applies.
                 ratio = difflib.SequenceMatcher(None, text.split(), result.split()).ratio()
                 if ratio < 0.70:
-                    logger.warning("Transformer Confidence Score zu niedrig (Ratio: %.2f). Transformation verworfen (Demut).", ratio)
+                    logger.warning("Transformer confidence score too low (ratio: %.2f). Transformation discarded (demure mode).", ratio)
                     return text
 
-                # 2. Entity-Check (Validierung) durchführen
+                # 2. Perform entity check (validation)
                 val_prompt = _VALIDATION_PROMPT.format(original=text, transformed=result)
                 val_response = self._llm.complete([{"role": "user", "content": val_prompt}]).strip().upper()
-                
+
                 if "TRUE" in val_response and "FALSE" not in val_response:
-                    return result  # Fakten blieben erhalten -> Erfolgreich!
-                
-                logger.warning("Transformer Entity-Check fehlgeschlagen (Versuch %d/%d).", attempt + 1, max_attempts)
-                
-                # 3. Für den nächsten Versuch den strengeren Korrektur-Prompt laden
+                    return result  # Facts preserved → success
+
+                logger.warning("Transformer entity check failed (attempt %d/%d).", attempt + 1, max_attempts)
+
+                # 3. Load stricter correction prompt for the next attempt
                 current_prompt = _CORRECTION_PROMPT.format(
                     formality=rules.formality_level,
                     preferred=preferred,
                     avoided=avoided,
                     text=text
                 )
-                
+
             except Exception as exc:
-                logger.error("LLMToneTransformer fehlgeschlagen: %s. Gebe Original-Text zurück.", exc)
+                logger.error("LLMToneTransformer failed: %s. Returning original text.", exc)
                 return text
-                
-        logger.error("Transformer konnte Faktentreue nicht sicherstellen. Fallback auf Original-Text.")
+
+        logger.error("Transformer could not ensure factual accuracy. Falling back to original text.")
         return text
 
 # ---------------------------------------------------------------------------
-# Bekannte informelle Füllwörter → Ersatz (leer = Wort entfernen)
+# Known informal filler words → replacement (empty string = remove word)
 # ---------------------------------------------------------------------------
-# Nur eindeutige Füllwort-Verwendungen — Wörter mit zentraler semantischer
-# Bedeutung werden NICHT automatisch ersetzt.
+# Only unambiguous filler usages — words with central semantic meaning
+# are NOT automatically replaced.
 _INFORMAL_SUBSTITUTIONS: dict[str, str] = {
-    # Eindeutige Füllwörter ohne eigenständige Bedeutung → entfernen
+    # Unambiguous fillers without independent meaning → remove
     "halt":       "",          # "Das ist halt so." → "Das ist so."
     "irgendwie":  "",          # "Das funktioniert irgendwie nicht." → "Das funktioniert nicht."
     "eigentlich": "",          # "Das sollte eigentlich klappen." → "Das sollte klappen."
     "lol":        "",
     "haha":       "",
-    "hey":        "",          # Als Anrede am Satzanfang — nur Füllwert
-    # Umgangssprache → Standardsprache
+    "hey":        "",          # As a greeting at the start of a sentence — filler only
+    # Colloquial → standard
     "quasi":      "im Wesentlichen",
     "sozusagen":  "gewissermaßen",
     "okay":       "in Ordnung",
@@ -164,55 +164,55 @@ _INFORMAL_SUBSTITUTIONS: dict[str, str] = {
     "grad":       "gerade",
 }
 
-# Formalitätsstufe ab der informelle Füllwörter automatisch entfernt werden
+# Formality level from which informal filler words are automatically removed
 _FORMALITY_SUBSTITUTION_THRESHOLD = 3
 
 
 class RuleBasedToneTransformer:
     """
-    Passt den Ton eines Textes regelbasiert an den Fingerprint an.
+    Adjusts the tone of a text using rule-based processing against the fingerprint.
 
-    Schritt 1: Avoided vocabulary aus dem Fingerprint entfernen.
-    Schritt 2: Allgemeine informelle Füllwörter entfernen (ab Formalität ≥ 3).
-    Schritt 3: Leerzeichen-Artefakte normalisieren.
+    Step 1: Remove avoided vocabulary from the fingerprint.
+    Step 2: Remove general informal filler words (at formality ≥ 3).
+    Step 3: Normalize whitespace artifacts.
 
-    Implementiert ToneTransformerProtocol.
+    Implements ToneTransformerProtocol.
     """
 
     def transform(self, text: str, fingerprint: Fingerprint, domain: str = "DEFAULT") -> str:
         """
-        Transformiert den Ton des Textes anhand des Fingerprints.
+        Transforms the tone of the text according to the fingerprint.
 
-        Gibt immer einen String zurück — auch wenn keine Änderungen nötig sind.
-        Verändert niemals die Struktur, Reihenfolge oder Vollständigkeit.
+        Always returns a string — even if no changes are needed.
+        Never alters structure, order, or completeness.
         """
         rules  = fingerprint.layer1
         result = text
 
-        # Schritt 1: Avoided vocabulary aus dem Fingerprint entfernen
+        # Step 1: Remove avoided vocabulary from the fingerprint
         for word in rules.avoided_vocabulary:
             result = _replace_word(result, word, "")
 
-        # Schritt 2: Allgemeine informelle Füllwörter (ab Formalität ≥ threshold)
+        # Step 2: General informal filler words (at formality ≥ threshold)
         if rules.formality_level >= _FORMALITY_SUBSTITUTION_THRESHOLD:
             for informal, replacement in _INFORMAL_SUBSTITUTIONS.items():
                 result = _replace_word(result, informal, replacement)
 
-        # Schritt 3: Leerzeichen normalisieren (Artefakte durch Entfernungen)
+        # Step 3: Normalize whitespace (artifacts from word removals)
         result = _normalize_whitespace(result)
 
         return result
 
 
 # ---------------------------------------------------------------------------
-# Hilfsfunktionen (öffentlich für Tests)
+# Helper functions (public for tests)
 # ---------------------------------------------------------------------------
 
 def _replace_word(text: str, word: str, replacement: str) -> str:
     """
-    Ersetzt ein Wort (Wortgrenzen-sensitiv, case-insensitiv).
+    Replaces a word (word-boundary-sensitive, case-insensitive).
 
-    Wortgrenzen stellen sicher dass "ok" nicht in "okay" oder "Token" gefunden wird.
+    Word boundaries ensure that "ok" is not matched inside "okay" or "Token".
     """
     pattern = r"\b" + re.escape(word) + r"\b"
     return re.sub(pattern, replacement, text, flags=re.IGNORECASE)
@@ -220,11 +220,11 @@ def _replace_word(text: str, word: str, replacement: str) -> str:
 
 def _normalize_whitespace(text: str) -> str:
     """
-    Bereinigt Leerzeichen-Artefakte nach Wortentfernungen.
+    Cleans up whitespace artifacts after word removals.
 
-      - Mehrfache Leerzeichen → einfaches Leerzeichen
-      - Leerzeichen vor Satzzeichen → kein Leerzeichen
-      - Führende/nachfolgende Leerzeichen entfernen
+      - Multiple spaces → single space
+      - Space before punctuation → no space
+      - Leading/trailing whitespace removed
     """
     result = re.sub(r" {2,}", " ", text)
     result = re.sub(r" ([,.:;!?])", r"\1", result)

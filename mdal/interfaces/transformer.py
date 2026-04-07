@@ -1,11 +1,11 @@
 """
-Tone Transformer Protocol — Nahtstelle für spätere Rust-Extraktion.
+Tone transformer protocol — interface for future Rust extraction.
 
-Der Transformer passt ausschließlich Tonalität an (F10).
-Struktur, Reihenfolge, Hierarchie und Vollständigkeit bleiben unverändert.
-Kein LLM-Aufruf — zählt daher nicht als Retry (F5).
+The transformer adjusts tonality only (F10).
+Structure, order, hierarchy, and completeness remain unchanged.
+No LLM call — therefore does not count as a retry (F5).
 
-→ Rust-Kern (Zielarchitektur)
+→ Rust core (target architecture)
 """
 
 from __future__ import annotations
@@ -19,13 +19,13 @@ if TYPE_CHECKING:
 @runtime_checkable
 class ToneTransformerProtocol(Protocol):
     """
-    Transformiert den Ton eines Textes anhand des Fingerprints.
+    Transforms the tone of a text according to the fingerprint.
 
-    Invarianten (F10):
-    - Reihenfolge von Aussagen bleibt erhalten
-    - Hierarchie und Aufzählungsstruktur bleibt erhalten
-    - Vollständigkeit: kein Inhalt wird hinzugefügt oder entfernt
-    - Nur Tonalität, Formalitätsniveau und Formulierungsstil werden angepasst
+    Invariants (F10):
+    - Order of statements is preserved
+    - Hierarchy and list structure is preserved
+    - Completeness: no content is added or removed
+    - Only tonality, formality level, and phrasing style are adjusted
     """
 
     def transform(self, text: str, fingerprint: Fingerprint, domain: str = "DEFAULT") -> str:

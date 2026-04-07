@@ -1,17 +1,17 @@
 """
-Session Context — ephemerer Zustand einer laufenden Session (F14, NF3).
+Session Context — ephemeral state of a running session (F14, NF3).
 
-Der Session Context existiert ausschließlich für die Dauer einer Session.
-Er wird nach Session-Ende vollständig verworfen — keine Persistierung.
+The session context exists exclusively for the duration of a session.
+It is fully discarded after the session ends — no persistence.
 
-Zweck:
-  - Multi-Turn-Konsistenz: Der Fingerabdruck wird innerhalb einer Session
-    konsistent angewendet. Output 3 darf Output 1 stilistisch nicht widersprechen.
-  - Aktive Fingerprint-Version für diese Session merken.
-  - Prüfhistorie für Konsistenzvergleich vorhalten.
+Purpose:
+  - Multi-turn consistency: the fingerprint is applied consistently within
+    a session. Output 3 must not stylistically contradict Output 1.
+  - Track the active fingerprint version for this session.
+  - Maintain a check history for consistency comparisons.
 
-Session-übergreifende Konsistenz ist explizit nicht vorgesehen (F14):
-Sie würde Datenspeicherung erfordern und widerspricht NF3.
+Cross-session consistency is explicitly not provided (F14):
+it would require data storage and conflicts with NF3.
 """
 
 from __future__ import annotations
@@ -25,10 +25,10 @@ from mdal.interfaces.scoring import CheckResult
 @dataclass
 class SessionContext:
     """
-    Ephemerer Zustand einer laufenden Session.
+    Ephemeral state of a running session.
 
-    Wird beim ersten Request angelegt und nach Session-Ende verworfen.
-    Enthält keine persistierten Nutzerinhalte.
+    Created at the first request and discarded after the session ends.
+    Contains no persisted user content.
     """
     language:            str
     fingerprint_version: int
@@ -40,17 +40,17 @@ class SessionContext:
 
     def record_check(self, result: CheckResult) -> None:
         """
-        Speichert ein Prüfergebnis in der Session-Prüfhistorie.
+        Stores a check result in the session check history.
 
-        Die Historie ermöglicht Konsistenzvergleiche über mehrere Turns (F14):
-        Wenn frühere Turns mit HIGH bewertet wurden und ein späterer Turn
-        deutlich abweicht, kann das ein Signal für Drift sein.
+        The history enables consistency comparisons across multiple turns (F14):
+        if earlier turns were rated HIGH and a later turn deviates significantly,
+        this can be a signal for drift.
         """
         self._check_history.append(result)
         self.turn_count += 1
 
     def check_history(self) -> list[CheckResult]:
-        """Gibt eine Kopie der Prüfhistorie zurück (unveränderlich von außen)."""
+        """Returns a copy of the check history (immutable from the outside)."""
         return list(self._check_history)
 
     def has_prior_checks(self) -> bool:

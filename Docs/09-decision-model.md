@@ -1,162 +1,162 @@
-# Entscheidungsmodell
+# Decision Model
 
-## Grundprinzip
+## Core Principle
 
-MDAL trifft nach einer Modellantwort nicht nur die Entscheidung, ob technisch ein Ergebnis vorliegt, sondern ob dieses Ergebnis im jeweiligen Kontext verwendbar ist. Das Entscheidungsmodell trennt damit die Existenz einer Antwort von ihrer Verwendbarkeit.
+After a model response, MDAL does not merely decide whether a result is technically present, but whether that result is usable in the given context. The decision model therefore separates the existence of a response from its usability.
 
-Die zentrale Frage lautet nicht: „Hat das Modell etwas geliefert?“  
-Die zentrale Frage lautet: „Ist das Gelieferte für das beabsichtigte Nutzungserlebnis und den jeweiligen Strukturanspruch ausreichend belastbar?“
+The central question is not: "Did the model produce something?"
+The central question is: "Is what was produced sufficiently reliable for the intended user experience and the respective structural requirements?"
 
-Dabei ist die Art der Prüfung vom Inhaltstyp abhängig:
-- Bei freier Prosa erfolgt primär eine Stilprüfung gegen das Referenzniveau.
-- Bei strukturierten Inhalten kann zusätzlich eine fachliche oder formale Validierung erfolgen, allerdings nur dann, wenn ein passendes Prüfplugin vorhanden ist.
+The type of check depends on the content type:
+- For free-form prose, the primary check is a style evaluation against the reference level.
+- For structured content, additional domain-specific or formal validation may take place, but only when a matching validation plugin is available.
 
-## Begriffsabgrenzung
+## Terminology
 
-Damit die Doku konsistent bleibt, werden die folgenden Begriffe in MDAL bewusst getrennt verwendet:
+To keep the documentation consistent, the following terms are used with deliberate distinctions in MDAL:
 
 ### Transformation
 
-Transformation bezeichnet die gezielte Umformung einer bereits vorliegenden Modellantwort. Der bestehende Antwortkern bleibt erhalten, wird aber angepasst, um näher an das gewünschte Referenzniveau oder an eine erwartete Form zu gelangen.
+Transformation denotes the targeted reshaping of an already existing model response. The existing response core is retained but adjusted to move closer to the desired reference level or expected form.
 
-Typische Fälle:
-- stilistische Glättung
-- Anpassung von Formulierungen
-- Nachziehen einer gewünschten Antwortstruktur, soweit dies ohne vollständige Neuerzeugung möglich ist
+Typical cases:
+- stylistic smoothing
+- adjustment of phrasing
+- aligning an existing content to a desired response structure, insofar as this is possible without full regeneration
 
-Transformation arbeitet also auf einem vorhandenen Ergebnis.
+Transformation therefore works on an existing result.
 
 ### Refinement
 
-Refinement ist die gezielte qualitative Nachschärfung eines bestehenden Ergebnisses. Im Unterschied zur allgemeinen Transformation ist der Begriff enger auf die Verbesserung eines bereits brauchbaren Outputs gerichtet.
+Refinement is the quality-oriented fine-tuning of an already fundamentally usable output. Unlike the general term transformation, refinement is more narrowly directed at improving an already workable output.
 
-Typische Fälle:
-- eine Antwort ist grundsätzlich verwendbar, aber noch nicht sauber genug
-- ein Ergebnis ist stilistisch nah am Zielniveau, aber noch zu roh
-- kleinere Mängel sollen behoben werden, ohne den Antwortkern auszutauschen
+Typical cases:
+- a response is basically usable but not yet clean enough
+- a result is stylistically close to the target level but still too rough
+- minor deficiencies are to be corrected without replacing the response core
 
-In der Praxis ist Refinement damit ein spezieller Anwendungsfall von Transformation. Wenn beide Begriffe parallel verwendet werden, ist mit Refinement die feinere, qualitätsorientierte Form der Transformation gemeint.
+In practice, refinement is a special case of transformation. When both terms are used in parallel, refinement refers to the finer, quality-oriented form of transformation.
 
 ### Retry
 
-Retry bezeichnet keinen Eingriff in die vorhandene Antwort, sondern einen erneuten Modelllauf. Das bisherige Ergebnis wird also nicht umgearbeitet, sondern verworfen oder nur noch als Diagnosegrundlage betrachtet. Ziel ist die Erzeugung eines neuen Outputs.
+Retry does not involve modifying the existing response, but requesting a new model run. The prior result is discarded or only used as a diagnostic basis. The goal is to produce a new output.
 
-Typische Fälle:
-- die vorhandene Antwort ist grundlegend unzureichend
-- eine Transformation wäre unsicherer oder teurer als ein Neuversuch
-- die Abweichung vom Referenzniveau ist so groß, dass ein neuer Durchlauf sinnvoller erscheint
+Typical cases:
+- the existing response is fundamentally insufficient
+- a transformation would be less reliable or more costly than a new attempt
+- the deviation from the reference level is so large that a fresh run seems more appropriate
 
-## Entscheidungsstufen
+## Decision Stages
 
-### 1. Annahme ohne Eingriff
+### 1. Acceptance Without Intervention
 
-Eine Antwort wird direkt akzeptiert, wenn sie im jeweiligen Kontext ausreichend nah am erwarteten Referenzniveau liegt und keine relevanten Verstöße erkannt werden. Dazu zählt insbesondere:
-- ausreichende Stiltreue bei freier Prosa
-- keine kritischen Strukturverstöße bei validierbaren Inhalten
-- keine plugin-seitig festgestellten Fehler, sofern ein Prüfplugin aktiv ist
+A response is accepted directly if it is sufficiently close to the expected reference level in the given context and no relevant violations are detected. This includes in particular:
+- sufficient style fidelity for free-form prose
+- no critical structural violations for validatable content
+- no plugin-side errors where a validation plugin is active
 
 ### 2. Transformation / Refinement
 
-Eine Antwort wird nicht sofort verworfen, wenn die Abweichung voraussichtlich auf Basis des vorhandenen Ergebnisses korrigierbar ist. In diesem Fall erfolgt eine gezielte Transformation. Wenn die Antwort bereits tragfähig ist und nur noch qualitativ nachgeschärft werden muss, kann man präziser von Refinement sprechen.
+A response is not immediately discarded if the deviation can presumably be corrected on the basis of the existing result. In this case a targeted transformation takes place. If the response is already workable and only needs quality refinement, one may more precisely speak of refinement.
 
-Typische Auslöser:
-- stilistische Drift gegenüber dem Referenzniveau
-- kleinere formale Schwächen
-- unzureichende Konsistenz im Antwortverhalten
-- ein grundsätzlich brauchbarer Output, der noch verfeinert werden soll
+Typical triggers:
+- stylistic drift from the reference level
+- minor formal weaknesses
+- insufficient consistency in response behavior
+- a basically usable output that still needs polishing
 
-Transformation bzw. Refinement ist fachlich sinnvoll, wenn die Antwort einen verwertbaren Kern besitzt.
+Transformation or refinement is domain-appropriate when the response has a usable core.
 
-### 3. Retry / Neuversuch
+### 3. Retry / New Attempt
 
-Ein Retry wird verwendet, wenn die Antwort nicht hinreichend verwertbar ist oder eine Transformation voraussichtlich nicht genügt. Ziel ist ein erneuter Modelllauf unter kontrollierten Bedingungen.
+A retry is used when the response is not sufficiently usable or a transformation would likely not suffice. The goal is a new model run under controlled conditions.
 
-Ein Retry ist insbesondere dann angemessen, wenn:
-- die erkannte Abweichung grundsätzlicher Natur ist
-- der Antwortkern nicht tragfähig genug ist
-- das System erwartet, dass Qualität oder Strukturtreue bei einem weiteren Durchlauf mit vertretbarem Aufwand verbessert werden können
+A retry is particularly appropriate when:
+- the detected deviation is fundamental in nature
+- the response core is not workable enough
+- the system expects that quality or structural fidelity can be improved in a further run at acceptable cost
 
-### 4. Eskalation
+### 4. Escalation
 
-Eine Eskalation erfolgt, wenn innerhalb der definierten Betriebsgrenzen kein akzeptables Ergebnis erzielt werden konnte oder ein Verstoß so gravierend ist, dass ein weiterer automatischer Versuch fachlich nicht mehr sinnvoll erscheint.
+Escalation occurs when no acceptable result could be achieved within the defined operational limits, or when a violation is so severe that a further automatic attempt no longer appears domain-appropriate.
 
-Das kann zum Beispiel dann der Fall sein, wenn:
-- Retry-Limits erreicht wurden
-- bei validierbaren strukturierten Inhalten kritische Fehler bestehen bleiben
-- notwendige Prüfplugins fehlen, obwohl ohne sie keine belastbare Aussage über die Struktur möglich ist
-- das Ergebnis dauerhaft nicht nahe genug am Referenzniveau liegt
+This may be the case, for example, when:
+- retry limits have been reached
+- for validatable structured content, critical errors persist
+- required validation plugins are missing even though no reliable structural statement is possible without them
+- the result persistently falls short of the reference level
 
-## Rolle der strukturierten Validierung
+## Role of Structured Validation
 
-Neben der Stilprüfung besitzt MDAL eine zweite, kontextsensitive Entscheidungsebene: die Validierung strukturierter Inhalte. Diese wird nur aktiv, wenn ein passendes Prüfplugin vorhanden ist.
+Alongside style checking, MDAL has a second, context-sensitive decision layer: the validation of structured content. This is only activated when a matching validation plugin is present.
 
-Damit gilt fachlich:
-- freie Prosa wird primär auf Stiltreue geprüft und ggf. transformiert
-- strukturierte Inhalte können zusätzlich fachlich oder formal validiert werden
-- ohne passendes Plugin darf keine weitergehende Qualitätsaussage über die Struktur behauptet werden
+This means from a domain perspective:
+- free-form prose is primarily checked for style fidelity and transformed if needed
+- structured content may additionally be validated domain-specifically or formally
+- without a matching plugin, no further quality statement about the structure may be claimed
 
-Ein Ergebnis kann daher stilistisch akzeptabel wirken, aber strukturell unzulässig sein. In diesem Fall ist es nur dann sicher erkennbar, wenn ein geeignetes Prüfplugin vorhanden ist.
+A result may therefore appear stylistically acceptable but be structurally inadmissible. This is only reliably detectable if a suitable validation plugin is available.
 
-## Entscheidung nach Fehlertyp
+## Decision by Error Type
 
-### Stilabweichung bei freier Prosa
+### Style Deviation in Free-Form Prose
 
-Wenn die Antwort sprachlich oder stilistisch vom Zielniveau abweicht, liegt typischerweise ein Fall für Transformation oder – bei größerer Abweichung – Retry vor.
+When a response deviates linguistically or stylistically from the target level, this is typically a case for transformation or — with larger deviation — retry.
 
-### Strukturverstoß bei validierbarem Inhalt
+### Structural Violation in Validatable Content
 
-Wenn eine erwartete Struktur verletzt wird und ein passendes Prüfplugin aktiv ist, ist das in der Regel schwerwiegender als eine reine Stilabweichung, da die Weiterverarbeitung im Zielsystem gefährdet sein kann.
+When an expected structure is violated and a matching validation plugin is active, this is generally more serious than a pure style deviation, since downstream processing in the target system may be at risk.
 
-### Fehlende Validierbarkeit
+### Missing Validatability
 
-Wenn ein strukturierter Inhalt vorliegt, aber das erforderliche Prüfplugin fehlt, entsteht eine fachliche Unsicherheit. In einem kontrollierten Betrieb darf diese Lücke nicht als bestandene Qualitätsprüfung ausgegeben werden.
+When structured content is present but the required validation plugin is missing, a domain-level uncertainty arises. In a controlled production environment, this gap must not be treated as a passed quality check.
 
-### Wiederholte Abweichung vom Referenzniveau
+### Repeated Deviation from Reference Level
 
-Wenn sich Stil- oder Strukturprobleme über mehrere Versuche hinweg nicht beheben lassen, wird aus einem einzelnen Antwortproblem ein Betriebsproblem. Genau an diesem Punkt greift Eskalation als Schutzmechanismus.
+When style or structural problems cannot be resolved across multiple attempts, an individual response problem becomes an operational problem. This is precisely the point at which escalation acts as a safeguard.
 
-## Entscheidungslogik im Überblick
+## Decision Logic Overview
 
 ```mermaid
 flowchart TD
-    A[Modellantwort liegt vor] --> B[Stilprüfung gegen Referenzniveau]
-    B --> C{Ausreichend nah am Zielniveau?}
+    A[Model Response Available] --> B[Style Check Against Reference Level]
+    B --> C{Sufficiently Close to Target Level?}
 
-    C -- Ja --> D{Strukturierter Inhalt?}
-    C -- Nein --> E{Transformation sinnvoll?}
+    C -- Yes --> D{Structured Content?}
+    C -- No --> E{Transformation Useful?}
 
-    D -- Nein --> F[Antwort akzeptieren]
-    D -- Ja --> G{Passendes Prüfplugin vorhanden?}
+    D -- No --> F[Accept Response]
+    D -- Yes --> G{Matching Plugin Available?}
 
-    G -- Ja --> H[Formale / fachliche Validierung]
-    H --> I{Validierung erfolgreich?}
-    I -- Ja --> F
-    I -- Nein --> J{Retry noch sinnvoll?}
+    G -- Yes --> H[Formal / Domain Validation]
+    H --> I{Validation Successful?}
+    I -- Yes --> F
+    I -- No --> J{Retry Still Useful?}
 
-    G -- Nein --> K[Keine weitergehende Strukturprüfung möglich]
+    G -- No --> K[No Further Structure Validation Possible]
 
-    E -- Ja --> L[Transformation / Refinement]
+    E -- Yes --> L[Transformation / Refinement]
     L --> A
-    E -- Nein --> M[Eskalation]
+    E -- No --> M[Escalation]
 
-    J -- Ja --> N[Retry]
+    J -- Yes --> N[Retry]
     N --> A
-    J -- Nein --> M
+    J -- No --> M
 
-    K --> O{Antwort trotzdem verwendbar?}
-    O -- Ja --> F
-    O -- Nein --> M
+    K --> O{Response Still Usable?}
+    O -- Yes --> F
+    O -- No --> M
 ```
 
-## Fachliche Abgrenzung
+## Domain Boundary
 
-Das Entscheidungsmodell verfolgt nicht das Ziel, jede Antwort umfassend qualitativ zu bewerten. Es verfolgt das Ziel, die jeweils tatsächlich verfügbare Prüfbasis korrekt zu nutzen:
-- Stilprüfung und ggf. Transformation bei freier Prosa
-- zusätzliche formale oder fachliche Validierung bei strukturierten Inhalten mit passendem Plugin
+The decision model does not aim to comprehensively evaluate every response from a quality perspective. It aims to correctly utilize the actually available verification basis:
+- style checking and transformation if needed for free-form prose
+- additional formal or domain validation for structured content with a matching plugin
 
-Innerhalb dieser Logik gilt:
-- **Transformation** arbeitet auf einer vorhandenen Antwort
-- **Refinement** ist die feinere, qualitätsorientierte Form der Transformation
-- **Retry** erzeugt einen neuen Antwortlauf
+Within this logic:
+- **Transformation** works on an existing response
+- **Refinement** is the finer, quality-oriented form of transformation
+- **Retry** produces a new response run
 
-Genau diese Trennung verhindert begriffliche Unschärfe in der weiteren Dokumentation.
+This exact distinction prevents conceptual ambiguity in the rest of the documentation.

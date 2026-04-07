@@ -1,22 +1,22 @@
 """
-Komponenten-Initialisierung beim Server-Start.
+Component initialization at server startup.
 
-build_pipeline() ist die zentrale Factory-Funktion:
-Sie instantiiert alle MDAL-Komponenten aus einer geladenen MDALConfig
-und verdrahtet sie zur PipelineOrchestrator-Instanz.
+build_pipeline() is the central factory function:
+it instantiates all MDAL components from a loaded MDALConfig
+and wires them into the PipelineOrchestrator instance.
 
-connectivity_check() prüft nach build_pipeline() ob alle externen
-Endpunkte erreichbar sind (CR-Finding #6):
-  - Primäres LLM (Test-Ping via health_check)
-  - Embedding-Endpunkt
-  - DB-Verbindung bei nicht-file-Audit-Targets
+connectivity_check() runs after build_pipeline() to verify that all external
+endpoints are reachable (CR-Finding #6):
+  - Primary LLM (test ping via health_check)
+  - Embedding endpoint
+  - DB connection for non-file audit targets
 
-Trennungsprinzip:
-  - load_config / validate_runtime_paths: Pflicht vor build_pipeline
-  - build_pipeline selbst macht keine I/O-Checks — das ist Sache der Startup-Phase
-  - connectivity_check: nach build_pipeline, vor Server-Start
+Separation principle:
+  - load_config / validate_runtime_paths: required before build_pipeline
+  - build_pipeline itself does no I/O checks — that is the startup phase's responsibility
+  - connectivity_check: after build_pipeline, before server start
 
-F11: System startet nur in vollständig konfiguriertem Zustand.
+F11: System starts only in a fully configured state.
 """
 
 from __future__ import annotations
@@ -40,33 +40,33 @@ from mdal.verification.semantic.scorer import ScoringEngine
 
 def build_pipeline(config: MDALConfig) -> PipelineOrchestrator:
     """
-    Baut den vollständigen PipelineOrchestrator aus der gegebenen Konfiguration.
+    Builds the complete PipelineOrchestrator from the given configuration.
 
-    Reihenfolge:
-      1. LLM- und Embedding-Adapter
-      2. Plugin Registry laden
-      3. Fingerprint Store anlegen
-      4. Verification Engine zusammensetzen
-      5. Notifier, RetryController, Transformer
-      6. PipelineOrchestrator zusammenbauen
+    Order:
+      1. LLM and embedding adapters
+      2. Load plugin registry
+      3. Create fingerprint store
+      4. Assemble verification engine
+      5. Notifier, RetryController, transformer
+      6. Assemble PipelineOrchestrator
 
     Raises
     ------
-    Alle Fehler beim Laden der Plugin-Registry oder beim Erstellen der Adapter
-    werden nach oben durchgereicht — kein stiller Fallback (F11).
+    All errors during plugin registry loading or adapter creation are
+    propagated upward — no silent fallback (F11).
     """
-    # --- Adapter ---
+    # --- Adapters ---
     llm_adapter   = llm_adapter_from_config(config.llm)
     embed_adapter = embedding_adapter_from_config(config.embedding)
 
-    # --- Plugin Registry ---
+    # --- Plugin registry ---
     registry = PluginRegistry()
     registry.load_from(config.plugin_registry_path)
 
-    # --- Fingerprint Store ---
+    # --- Fingerprint store ---
     store = FingerprintStore(config.fingerprint_path)
 
-    # --- Verification Engine ---
+    # --- Verification engine ---
     layer1 = Layer1RuleChecker()
     layer2 = Layer2EmbeddingChecker(embedding_adapter=embed_adapter)
     layer3 = Layer3LLMJudge(llm_adapter=llm_adapter)
@@ -80,11 +80,10 @@ def build_pipeline(config: MDALConfig) -> PipelineOrchestrator:
         scorer   = scorer,
     )
 
-    # --- Notifier, RetryController, Transformer ---
+    # --- Notifier, RetryController, transformer ---
     notifier    = AdminNotifier(config.notifier)
     retry_ctrl  = RetryController(config.max_retries, notifier)
     transformer = LLMToneTransformer(llm_adapter=llm_adapter)
-
 
     return PipelineOrchestrator(
         llm          = llm_adapter,
@@ -97,22 +96,22 @@ def build_pipeline(config: MDALConfig) -> PipelineOrchestrator:
 
 
 def build_audit_writer(config: MDALConfig) -> AuditWriter:
-    """Erstellt den AuditWriter für den Proxy-Layer."""
+    """Creates the AuditWriter for the proxy layer."""
     return AuditWriter(config.audit)
 
 
 def connectivity_check(config: MDALConfig) -> None:
     """
-    Prüft ob alle externen Endpunkte beim Start erreichbar sind (CR-Finding #6).
+    Checks whether all external endpoints are reachable at startup (CR-Finding #6).
 
-    Wird nach build_pipeline() und vor Server-Start aufgerufen.
-    Stille Fehlkonfigurationen (falsche LLM-URL, ungültiger Connection-String)
-    werden sofort sichtbar statt erst beim ersten echten Request als 503.
+    Called after build_pipeline() and before server start.
+    Silent misconfigurations (wrong LLM URL, invalid connection string)
+    become visible immediately rather than as a 503 on the first real request.
 
     Raises
     ------
     ConfigError
-        Wenn mindestens ein Endpunkt nicht erreichbar ist (F11).
+        If at least one endpoint is not reachable (F11).
     """
     errors: list[str] = []
 
@@ -121,48 +120,47 @@ def connectivity_check(config: MDALConfig) -> None:
 
     if not llm_adapter.health_check():
         errors.append(
-            f"Primäres LLM nicht erreichbar: {config.llm.url} "
-            f"(Modell: {config.llm.model})"
+            f"Primary LLM not reachable: {config.llm.url} "
+            f"(model: {config.llm.model})"
         )
 
     if not embed_adapter.health_check():
         errors.append(
-            f"Embedding-Endpunkt nicht erreichbar: {config.embedding.url} "
-            f"(Modell: {config.embedding.model})"
+            f"Embedding endpoint not reachable: {config.embedding.url} "
+            f"(model: {config.embedding.model})"
         )
 
     if config.audit.target != "file" and config.audit.connection_string:
         if not _check_db_connection(config.audit.connection_string, config.audit.target):
             errors.append(
-                f"Audit-DB nicht erreichbar: target={config.audit.target}, "
+                f"Audit DB not reachable: target={config.audit.target}, "
                 f"connection_string={config.audit.connection_string[:40]}…"
             )
 
     if config.fallback_llm:
         fallback = llm_adapter_from_config(config.fallback_llm)
         if not fallback.health_check():
-            # Fallback-LLM ist nicht blockernd — nur Warnung, kein Startabbruch
+            # Fallback LLM is non-blocking — warning only, no startup abort
             import logging
             logging.getLogger(__name__).warning(
-                "Fallback-LLM nicht erreichbar: %s (Modell: %s) — "
-                "Fallback-Mechanismus (F9) steht nicht zur Verfügung.",
+                "Fallback LLM not reachable: %s (model: %s) — "
+                "fallback mechanism (F9) is not available.",
                 config.fallback_llm.url, config.fallback_llm.model,
             )
 
     if errors:
         raise ConfigError(
-            "Konnektivitätsprüfung fehlgeschlagen (F11):\n"
+            "Connectivity check failed (F11):\n"
             + "\n".join(f"  - {e}" for e in errors)
         )
 
 
 def _check_db_connection(connection_string: str, target: str) -> bool:
     """
-    Prüft ob eine Datenbankverbindung hergestellt werden kann.
+    Checks whether a database connection can be established.
 
-    Unterstützt PostgreSQL, MySQL und MSSQL via optionale Treiber.
-    Gibt False zurück wenn der Treiber nicht installiert ist oder
-    die Verbindung fehlschlägt.
+    Supports PostgreSQL, MySQL, and MSSQL via optional drivers.
+    Returns False if the driver is not installed or the connection fails.
     """
     try:
         if target == "postgresql":
@@ -172,9 +170,9 @@ def _check_db_connection(connection_string: str, target: str) -> bool:
             return True
         elif target in ("mysql",):
             import pymysql
-            # pymysql erwartet keyword-Argumente, kein Connection-String direkt
-            # → Verbindung wird über connection_string nicht direkt unterstützt
-            return True   # konservativ: kein Blockieren wenn Treiber nicht vorhanden
+            # pymysql expects keyword arguments, not a direct connection string
+            # → connection via connection_string not directly supported
+            return True   # conservative: do not block if driver unavailable
         elif target == "mssql":
             import pyodbc
             conn = pyodbc.connect(connection_string, timeout=5)
@@ -183,10 +181,10 @@ def _check_db_connection(connection_string: str, target: str) -> bool:
     except ImportError:
         import logging
         logging.getLogger(__name__).warning(
-            "DB-Treiber für '%s' nicht installiert — Konnektivitätsprüfung übersprungen.",
+            "DB driver for '%s' not installed — connectivity check skipped.",
             target,
         )
-        return True   # Treiber fehlt → nicht blockernd, Fehler tritt erst beim Schreiben auf
+        return True   # missing driver → non-blocking, error surfaces on first write
     except Exception:
         return False
     return False

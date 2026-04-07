@@ -1,88 +1,88 @@
-# Begriffe und Abgrenzungen
+# Terms and Boundaries
 
-## Zweck dieses Kapitels
+## Purpose of This Chapter
 
-Dieses Kapitel dient dazu, zentrale Begriffe in der MDAL-Dokumentation konsistent zu verwenden. Einige Begriffe liegen nah beieinander, beschreiben aber bewusst unterschiedliche fachliche oder operative Sachverhalte. Ohne diese Trennung entstehen schnell Missverständnisse in Architektur, Implementierung und Betriebslogik.
+This chapter ensures that central terms in the MDAL documentation are used consistently. Some terms are closely related but deliberately describe different domain or operational facts. Without this distinction, misunderstandings in architecture, implementation, and operational logic arise quickly.
 
 ## Fingerprint
 
-Der Fingerprint ist das Referenzniveau für erwartbares Modellverhalten in einem bestimmten Nutzungskontext. Er ist weder bloß ein Prompt noch einfach ein Satz von Few-Shot-Beispielen oder eine Policy. Sein Zweck ist die vergleichende Einordnung von Antworten gegen ein bekanntes akzeptiertes Niveau.
+The fingerprint is the reference level for expected model behavior in a particular usage context. It is neither merely a prompt, nor simply a set of few-shot examples, nor a policy. Its purpose is the comparative evaluation of responses against a known accepted level.
 
-Faustregel:
-- Prompt steuert Erzeugung
-- Few-Shot demonstriert Muster im Prompt-Kontext
-- Policy formuliert Soll-Regeln
-- Fingerprint liefert das betriebliche Referenzniveau für Bewertung und Stabilisierung
+Rule of thumb:
+- Prompt controls generation
+- Few-shot demonstrates patterns within the prompt context
+- Policy formulates target rules
+- Fingerprint provides the operational reference level for evaluation and stabilization
 
 ## Transformation
 
-Transformation bezeichnet die gezielte Umformung einer bereits vorliegenden Modellantwort. Das vorhandene Ergebnis bleibt dabei die Grundlage, wird jedoch angepasst, um näher an das gewünschte Referenzniveau oder an eine erwartete Form zu gelangen.
+Transformation denotes the targeted reshaping of an already existing model response. The existing result remains the basis, but is adjusted to move closer to the desired reference level or expected form.
 
-Beispiele:
-- sprachliche Glättung
-- Anpassung des Tons
-- formale Umstrukturierung eines vorhandenen Inhalts
-- Korrektur einzelner Schwächen, ohne den Antwortkern zu ersetzen
+Examples:
+- linguistic smoothing
+- tone adjustment
+- formal restructuring of existing content
+- correction of individual weaknesses without replacing the response core
 
-Transformation setzt also einen nutzbaren Ausgangsoutput voraus.
+Transformation therefore requires a usable initial output.
 
 ## Refinement
 
-Refinement bezeichnet die qualitätsorientierte Nachschärfung eines bereits grundsätzlich brauchbaren Outputs. Fachlich ist Refinement damit ein spezieller Fall der Transformation.
+Refinement denotes the quality-oriented fine-tuning of an already fundamentally usable output. From a domain perspective, refinement is a special case of transformation.
 
-Die Unterscheidung ist vor allem dann hilfreich, wenn betont werden soll, dass:
-- der Antwortkern bereits tragfähig ist
-- keine grobe Umformung, sondern eine feinere Verbesserung stattfindet
-- das Ziel eher Veredelung als Reparatur ist
+The distinction is most helpful when emphasizing that:
+- the response core is already workable
+- no coarse reshaping is taking place, but a finer improvement
+- the goal is more polish than repair
 
-Kurz gesagt:
-- jede Refinement-Maßnahme ist eine Transformation
-- nicht jede Transformation ist bereits ein Refinement
+In short:
+- every refinement action is a transformation
+- not every transformation is already a refinement
 
 ## Retry
 
-Retry bezeichnet einen erneuten Modelllauf. Im Unterschied zu Transformation und Refinement wird nicht auf dem bestehenden Ergebnis gearbeitet, sondern ein neuer Output angefordert.
+Retry denotes a new model run. Unlike transformation and refinement, the existing result is not reworked — instead a new output is requested.
 
-Retry ist sinnvoll, wenn:
-- der vorhandene Antwortkern nicht tragfähig genug ist
-- die Abweichung vom Referenzniveau zu groß ist
-- eine Neu-Erzeugung erfolgversprechender erscheint als eine Umarbeitung
+Retry is appropriate when:
+- the existing response core is not workable enough
+- the deviation from the reference level is too large
+- a fresh generation appears more promising than reworking the existing result
 
-## Stilprüfung
+## Style Check
 
-Stilprüfung bedeutet die Bewertung einer Antwort gegen das bekannte Referenzniveau, soweit es um Tonalität, Antwortcharakter, äußere Konsistenz und Nähe zum gewünschten Verhalten geht. Stilprüfung ist besonders für freie Prosa relevant.
+Style check means evaluating a response against the known reference level with respect to tonality, response character, external consistency, and proximity to the desired behavior. Style checking is particularly relevant for free-form prose.
 
-Stilprüfung ist **keine** allgemeine fachliche Qualitätsprüfung des Inhalts.
+Style check is **not** a general domain quality check of content.
 
-## Validierung
+## Validation
 
-Validierung bezeichnet in MDAL die zusätzliche formale oder fachliche Prüfung strukturierter Inhalte auf Basis einer konkreten Prüfbasis, etwa:
-- Schema
-- Parser
-- domänenspezifisches Plugin
-- Regelwerk
+Validation in MDAL denotes the additional formal or domain-specific check of structured content on the basis of a concrete verification basis, such as:
+- schema
+- parser
+- domain-specific plugin
+- rule set
 
-Validierung findet nur statt, wenn eine solche Prüfbasis tatsächlich vorhanden ist.
+Validation only takes place when such a verification basis is actually present.
 
-## Qualitätsniveau vs. Prüftiefe
+## Quality Level vs. Verification Depth
 
-Diese beiden Begriffe sollten nicht vermischt werden:
+These two terms should not be conflated:
 
-### Qualitätsniveau
-Beschreibt, welches Ergebnisniveau MDAL für das Nutzererlebnis anstrebt.
+### Quality Level
+Describes what result level MDAL aims for in the user experience.
 
-### Prüftiefe
-Beschreibt, wie tief ein konkretes Ergebnis im jeweiligen Kontext tatsächlich geprüft werden kann.
+### Verification Depth
+Describes how deeply a concrete result can actually be verified in the given context.
 
-Ein System kann also ein hohes Zielniveau haben, ohne jede Antwort mit derselben Prüftiefe untersuchen zu können. Genau deshalb ist in MDAL die Trennung zwischen Stilprüfung und plugin-basierter Validierung so wichtig.
+A system can therefore have a high target level without being able to examine every response with the same verification depth. This is precisely why the distinction between style checking and plugin-based validation is so important in MDAL.
 
-## Faustregel für die Doku
+## Rule of Thumb for the Documentation
 
-Wenn unklar ist, welcher Begriff verwendet werden soll, gilt:
+When it is unclear which term to use:
 
-- **Fingerprint**, wenn das betriebliche Referenzniveau gemeint ist
-- **Transformation**, wenn ein vorhandener Output umgearbeitet wird
-- **Refinement**, wenn ein bereits guter Output gezielt nachgeschärft wird
-- **Retry**, wenn ein neuer Modelllauf erfolgt
-- **Stilprüfung**, wenn freie Prosa gegen das Referenzniveau eingeordnet wird
-- **Validierung**, wenn strukturierte Inhalte mit Plugin, Schema oder Regelwerk geprüft werden
+- **Fingerprint**, when the operational reference level is meant
+- **Transformation**, when an existing output is being reshaped
+- **Refinement**, when an already good output is being fine-tuned
+- **Retry**, when a new model run takes place
+- **Style check**, when free-form prose is evaluated against the reference level
+- **Validation**, when structured content is checked using a plugin, schema, or rule set

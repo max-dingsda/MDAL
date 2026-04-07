@@ -1,8 +1,8 @@
 """
-LLM Adapter Protocol — Nahtstelle für spätere Rust-Extraktion (via PyO3).
+LLM adapter protocol — interface for future Rust extraction (via PyO3).
 
-Alle LLM-Interaktionen laufen ausschließlich über dieses Interface.
-Kein anderer Systemteil darf direkt HTTP-Calls zu einem LLM machen.
+All LLM interactions run exclusively through this interface.
+No other part of the system may make direct HTTP calls to an LLM.
 """
 
 from typing import Protocol, runtime_checkable
@@ -11,24 +11,24 @@ from typing import Protocol, runtime_checkable
 @runtime_checkable
 class LLMAdapterProtocol(Protocol):
     """
-    Einheitliche Schnittstelle zu jedem OpenAI-kompatiblen LLM-Endpunkt.
-    Implementierungen: OpenAICompatibleAdapter (Python), zukünftig Rust via PyO3.
+    Unified interface to any OpenAI-compatible LLM endpoint.
+    Implementations: OpenAICompatibleAdapter (Python), future Rust via PyO3.
     """
 
     def complete(self, messages: list[dict], **kwargs) -> str:
         """
-        Schickt eine Chat-Completion-Anfrage und gibt den Antwort-Text zurück.
-        Streaming ist hier nicht vorgesehen — vollständiger Output wird erwartet (F6).
+        Sends a chat completion request and returns the response text.
+        Streaming is not supported here — a complete output is expected (F6).
         """
         ...
 
     def embed(self, text: str) -> list[float]:
         """
-        Berechnet den Embedding-Vektor für den gegebenen Text.
-        Wird von einem dedizierten Embedding-Modell erledigt (separate Adapter-Instanz).
+        Computes the embedding vector for the given text.
+        Handled by a dedicated embedding model (separate adapter instance).
         """
         ...
 
     def health_check(self) -> bool:
-        """Prüft ob der Endpunkt erreichbar ist."""
+        """Checks whether the endpoint is reachable."""
         ...

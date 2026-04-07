@@ -1,4 +1,4 @@
-"""Unit-Tests für Semantic Layer 1 — regelbasierter Prüfer."""
+"""Unit tests for Semantic Layer 1 — rule-based checker."""
 
 import pytest
 
@@ -46,13 +46,13 @@ class TestLayer1RuleChecker:
             avoided_vocabulary=["halt", "irgendwie"],
         )
         checker = Layer1RuleChecker()
-        # Satz mit ~10 Wörtern → Formalität ≈ 3 (passt zur Konfiguration)
+        # sentence with ~10 words → formality ≈ 3 (matches the configuration)
         result = checker.check(
             "Die vorliegende Analyse zeigt ein klar erkennbares und nachvollziehbares Ergebnis.",
             make_fingerprint(rules),
             make_context(),
         )
-        # Avoided vocab: keine gefunden → kein LOW durch Vokabular-Check
+        # Avoided vocab: none found → no LOW from vocabulary check
         assert result.level != ScoreLevel.LOW
 
     def test_preferred_vocabulary_present_contributes_high(self):
@@ -81,14 +81,14 @@ class TestLayer1RuleChecker:
             make_fingerprint(rules),
             make_context(),
         )
-        # Preferred vocab nicht gefunden → höchstens MEDIUM
+        # Preferred vocab not found → at most MEDIUM
         assert result.level in (ScoreLevel.MEDIUM, ScoreLevel.LOW)
 
     def test_empty_rules_gives_medium_or_high(self):
-        """Ohne Vokabular-Config prüft Layer 1 nur Formalität — Text muss zur Erwartung passen."""
+        """Without vocabulary config, Layer 1 only checks formality — text must match expectation."""
         rules = StyleRules(formality_level=3)
         checker = Layer1RuleChecker()
-        # Satz mit ~10-12 Wörtern → Formalitätsheuristik ergibt ≈ 3
+        # sentence with ~10-12 words → formality heuristic yields ≈ 3
         result = checker.check(
             "Die Ergebnisse der Analyse lassen eine klare Schlussfolgerung zu.",
             make_fingerprint(rules),
@@ -104,7 +104,7 @@ class TestLayer1RuleChecker:
         long_sentence = "Dies ist ein sehr langer Satz der weit über die erlaubte Wortanzahl hinausgeht und definitiv zu lang ist."
         checker = Layer1RuleChecker()
         result = checker.check(long_sentence, make_fingerprint(rules), make_context())
-        # Satz ist deutlich zu lang → LOW oder MEDIUM
+        # sentence is clearly too long → LOW or MEDIUM
         assert result.level in (ScoreLevel.LOW, ScoreLevel.MEDIUM)
 
     def test_result_contains_details(self):
@@ -122,7 +122,7 @@ class TestLayer1RuleChecker:
 
 
 # ---------------------------------------------------------------------------
-# Hilfsfunktionen
+# Helper functions
 # ---------------------------------------------------------------------------
 
 class TestAvgSentenceLength:

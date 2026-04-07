@@ -1,13 +1,13 @@
 """
-Phase 6 Pipeline-Test — direkte Validierung ohne HTTP-Proxy.
+Phase 6 Pipeline Test — direct validation without HTTP proxy.
 
-Testet die vier PoC-Kernfragen:
-  K1: Fingerprint-Tragfähigkeit — wie stabil ist der Centroid?
-  K2: Scoring-Kaskade — welche Entscheidungen trifft das System?
-  K3: Transformer-Verlässlichkeit — bleiben Semantik und Struktur erhalten?
-  K4: Schwellwert-Defaults — passen die Defaults 0.85/0.65 zur Realität?
+Tests the four PoC core questions:
+  K1: Fingerprint reliability — how stable is the centroid?
+  K2: Scoring cascade — what decisions does the system make?
+  K3: Transformer reliability — are semantics and structure preserved?
+  K4: Threshold defaults — do the defaults 0.85/0.65 match reality?
 
-Ausgabe: console + phase6_findings.md
+Output: console + phase6_findings.md
 """
 
 import json
@@ -35,25 +35,25 @@ def section(title: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# K1: Fingerprint-Tragfähigkeit
+# K1: Fingerprint Reliability
 # ---------------------------------------------------------------------------
 
 def test_fingerprint(config, store) -> dict:
-    section("K1: Fingerprint-Tragfähigkeit")
+    section("K1: Fingerprint Reliability")
 
     fp = store.load_current("de")
-    print(f"Fingerprint v{fp.version}, Sprache={fp.language}")
-    print(f"Layer 1: Formalität={fp.layer1.formality_level}, "
+    print(f"Fingerprint v{fp.version}, language={fp.language}")
+    print(f"Layer 1: formality={fp.layer1.formality_level}, "
           f"preferred={fp.layer1.preferred_vocabulary[:3]}")
-    print(f"Layer 2: Dimensionen={fp.layer2.dimensions}, "
-          f"Samples={fp.layer2.sample_count}")
-    print(f"Layer 3: {len(fp.layer3.samples)} Golden Samples")
+    print(f"Layer 2: dimensions={fp.layer2.dimensions}, "
+          f"samples={fp.layer2.sample_count}")
+    print(f"Layer 3: {len(fp.layer3.samples)} golden samples")
 
-    # Centroid-Norm prüfen (sollte > 0 sein)
+    # Check centroid norm (should be > 0)
     import math
     centroid = fp.layer2.centroid
     norm = math.sqrt(sum(x*x for x in centroid))
-    print(f"Centroid-Norm: {norm:.4f} ({'OK' if norm > 0.1 else 'SCHWACH'})")
+    print(f"Centroid norm: {norm:.4f} ({'OK' if norm > 0.1 else 'WEAK'})")
 
     return {
         "version": fp.version,
@@ -66,11 +66,11 @@ def test_fingerprint(config, store) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# K2 + K4: Scoring-Kaskade und Schwellwerte
+# K2 + K4: Scoring Cascade and Thresholds
 # ---------------------------------------------------------------------------
 
 def test_scoring(config, store) -> list[dict]:
-    section("K2/K4: Scoring-Kaskade und Schwellwert-Kalibrierung")
+    section("K2/K4: Scoring Cascade and Threshold Calibration")
 
     embed = embedding_adapter_from_config(config.embedding)
     fp = store.load_current("de")
@@ -78,7 +78,7 @@ def test_scoring(config, store) -> list[dict]:
 
     test_cases = [
         {
-            "label": "Stilähnlicher Text (deutsch, sachlich)",
+            "label": "Style-similar text (German, factual)",
             "text": (
                 "Die Architektur des Systems basiert auf einer dreischichtigen "
                 "Verifikationskaskade. Jede Schicht prüft einen anderen Aspekt des "
@@ -86,7 +86,7 @@ def test_scoring(config, store) -> list[dict]:
             ),
         },
         {
-            "label": "Sehr ähnlicher ChatGPT-Stil",
+            "label": "Very similar ChatGPT style",
             "text": (
                 "Hier ist eine übersichtliche Erklärung der ArchiMate-Notation:\n\n"
                 "**1. Business Layer:** Enthält Akteure, Rollen und Prozesse.\n"
@@ -96,7 +96,7 @@ def test_scoring(config, store) -> list[dict]:
             ),
         },
         {
-            "label": "Informeller Casual-Stil",
+            "label": "Informal casual style",
             "text": (
                 "hey, also ich hab das mal kurz angeschaut und ich glaub du musst "
                 "einfach nochmal drüberschauen, is eigentlich nicht so kompliziert lol. "
@@ -104,7 +104,7 @@ def test_scoring(config, store) -> list[dict]:
             ),
         },
         {
-            "label": "Englischer Text",
+            "label": "English text",
             "text": (
                 "The system architecture follows a microservices pattern with three "
                 "independent services communicating via REST APIs. Each service "
@@ -112,11 +112,11 @@ def test_scoring(config, store) -> list[dict]:
             ),
         },
         {
-            "label": "Kurze Antwort",
+            "label": "Short response",
             "text": "Ja, das ist korrekt.",
         },
         {
-            "label": "Technisch-formaler Stil",
+            "label": "Technical-formal style",
             "text": (
                 "Gemäß §4 Abs. 2 des Vertrages vom 15. März 2024 sind alle Parteien "
                 "verpflichtet, die vereinbarten Leistungen innerhalb der festgelegten "
@@ -146,7 +146,7 @@ def test_scoring(config, store) -> list[dict]:
             "details": result.details,
         })
 
-    # Schwellwert-Analyse
+    # Threshold analysis
     similarities = [r["similarity"] for r in results]
     print(f"\nMin:    {min(similarities):.4f}")
     print(f"Max:    {max(similarities):.4f}")
@@ -158,11 +158,11 @@ def test_scoring(config, store) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# K3: Transformer-Verlässlichkeit
+# K3: Transformer Reliability
 # ---------------------------------------------------------------------------
 
 def test_transformer() -> dict:
-    section("K3: Transformer-Verlässlichkeit")
+    section("K3: Transformer Reliability")
 
     from mdal.transformer import RuleBasedToneTransformer
 
@@ -170,18 +170,18 @@ def test_transformer() -> dict:
 
     test_cases = [
         {
-            "label": "Senkung Formalitätslevel (5→3)",
+            "label": "Reduce formality level (5→3)",
             "text": "Sehr geehrte Damen und Herren, ich erlaube mir hiermit, Sie "
                     "darauf hinzuweisen, dass das System derzeit nicht verfügbar ist.",
             "target_formality": 3,
         },
         {
-            "label": "Erhöhung Formalitätslevel (1→4)",
+            "label": "Increase formality level (1→4)",
             "text": "hey, das system ist grad down, kannst du kurz warten?",
             "target_formality": 4,
         },
         {
-            "label": "Strukturerhalt bei Transformation",
+            "label": "Structure preservation during transformation",
             "text": "Das sind die wichtigsten Punkte:\n1. Erster Punkt\n2. Zweiter Punkt\n"
                     "3. Dritter Punkt\n\nBitte beachten: Die Reihenfolge ist wichtig!",
             "target_formality": 4,
@@ -200,27 +200,27 @@ def test_transformer() -> dict:
         )
         try:
             transformed = transformer.transform(tc["text"], mock_fp)
-            # Struktur-Check: Nummerierte Listen müssen erhalten bleiben
+            # Structure check: numbered lists must be preserved
             has_list = "1." in tc["text"]
             list_preserved = ("1." in transformed) if has_list else True
             print(f"\n{tc['label']}")
-            print(f"  Original:     {tc['text'][:80]}")
-            print(f"  Transformiert:{transformed[:80]}")
-            print(f"  Struktur OK:  {list_preserved}")
+            print(f"  Original:    {tc['text'][:80]}")
+            print(f"  Transformed: {transformed[:80]}")
+            print(f"  Structure OK: {list_preserved}")
             results.append({
                 "label": tc["label"],
                 "preserved_structure": list_preserved,
                 "changed": transformed != tc["text"],
             })
         except Exception as e:
-            print(f"  FEHLER: {e}")
+            print(f"  ERROR: {e}")
             results.append({"label": tc["label"], "error": str(e)})
 
     return {"cases": results}
 
 
 # ---------------------------------------------------------------------------
-# Haupt-Aufruf
+# Main
 # ---------------------------------------------------------------------------
 
 def main() -> None:
@@ -228,7 +228,7 @@ def main() -> None:
     store = FingerprintStore(config.fingerprint_path)
 
     if not store.has_fingerprint("de"):
-        print("FEHLER: Kein Fingerprint für 'de' vorhanden. Trainer zuerst ausführen.")
+        print("ERROR: No fingerprint for 'de' found. Run the trainer first.")
         sys.exit(1)
 
     findings = {}
@@ -236,31 +236,31 @@ def main() -> None:
     findings["scoring"]     = test_scoring(config, store)
     findings["transformer"] = test_transformer()
 
-    # Zusammenfassung
-    section("ZUSAMMENFASSUNG — Phase 6 PoC-Kernfragen")
+    # Summary
+    section("SUMMARY — Phase 6 PoC Core Questions")
     fp = findings["fingerprint"]
     sc = findings["scoring"]
 
-    print(f"K1 Fingerprint-Tragfähigkeit:")
-    print(f"  v{fp['version']} mit {fp['layer2_samples']} Embedding-Samples, "
-          f"Norm={fp['centroid_norm']:.4f} → {'OK' if fp['centroid_norm'] > 0.1 else 'Schwach'}")
+    print(f"K1 Fingerprint Reliability:")
+    print(f"  v{fp['version']} with {fp['layer2_samples']} embedding samples, "
+          f"norm={fp['centroid_norm']:.4f} → {'OK' if fp['centroid_norm'] > 0.1 else 'WEAK'}")
 
     highs  = sum(1 for r in sc if r["level"] == "high")
     meds   = sum(1 for r in sc if r["level"] == "medium")
     lows   = sum(1 for r in sc if r["level"] == "low")
-    print(f"\nK2/K4 Scoring ({len(sc)} Tests): HIGH={highs}, MEDIUM={meds}, LOW={lows}")
+    print(f"\nK2/K4 Scoring ({len(sc)} tests): HIGH={highs}, MEDIUM={meds}, LOW={lows}")
     for r in sc:
         print(f"  [{r['level']:<6}] {r['similarity']:.4f}  {r['label']}")
 
     sims = sorted(r["similarity"] for r in sc)
-    print(f"\n  → Similarity-Range: {sims[0]:.4f} – {sims[-1]:.4f}")
+    print(f"\n  → Similarity range: {sims[0]:.4f} – {sims[-1]:.4f}")
     from mdal.verification.semantic.layer2 import THRESHOLD_HIGH, THRESHOLD_LOW
     if sims[-1] < THRESHOLD_HIGH:
-        print(f"  ⚠ Kein Test erreicht HIGH (≥{THRESHOLD_HIGH}) → Threshold_HIGH zu hoch?")
+        print(f"  ⚠ No test reaches HIGH (≥{THRESHOLD_HIGH}) → THRESHOLD_HIGH too high?")
     if sims[0] > THRESHOLD_LOW:
-        print(f"  ⚠ Kein Test fällt in LOW (<{THRESHOLD_LOW}) → Threshold_LOW zu niedrig?")
+        print(f"  ⚠ No test falls into LOW (<{THRESHOLD_LOW}) → THRESHOLD_LOW too low?")
 
-    # Ergebnis speichern
+    # Save findings
     findings_path = BASE / "phase6_findings.json"
     findings_path.write_text(json.dumps(findings, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\nFull findings: {findings_path}")

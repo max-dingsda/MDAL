@@ -1,18 +1,18 @@
 """
-Semantic Layer 2 — Embedding-Vergleich (SemanticCheckerProtocol).
+Semantic Layer 2 — embedding comparison (SemanticCheckerProtocol).
 
-Berechnet den Embedding-Vektor des aktuellen Outputs und vergleicht ihn
-mit dem Centroid-Vektor aus dem Fingerprint via Cosine-Similarity.
+Computes the embedding vector of the current output and compares it
+with the centroid vector from the fingerprint via cosine similarity.
 
-Schwellwerte (konfigurierbar, Defaults hier als Ausgangspunkt für Kalibrierung):
+Thresholds (configurable, defaults here as starting point for calibration):
   similarity >= THRESHOLD_HIGH  → HIGH
   similarity >= THRESHOLD_LOW   → MEDIUM
   similarity <  THRESHOLD_LOW   → LOW
 
-Diese Schwellwerte sind eine der vier offenen PoC-Fragen — beobachten und justieren.
+These thresholds are one of the four open PoC questions — observe and adjust.
 
-→ Rust-Kern (Zielarchitektur): Cosine-Similarity auf float-Vektoren,
-  rechenintensiv bei großen Embedding-Dimensionen.
+→ Rust core (target architecture): cosine similarity on float vectors,
+  computationally intensive for large embedding dimensions.
 """
 
 from __future__ import annotations
@@ -24,22 +24,22 @@ from mdal.interfaces.llm import LLMAdapterProtocol
 from mdal.interfaces.scoring import CheckResult, ScoreLevel
 from mdal.session import SessionContext
 
-# Schwellwerte für die Score-Einstufung
-# Phase 6 Kalibrierung (2026-04-04, Pilot-Fingerprint 30 Konversationen):
-#   - 0.85 war zu hoch: stilkonformer ChatGPT-Text erreichte nur 0.8416 → nie OUTPUT
-#   - 0.82 empirisch passend: guter Stil → HIGH, leichte Abweichungen → MEDIUM
-#   - 0.65 passt: informelle Texte landen in MEDIUM (→ TRANSFORM), nicht LOW (→ REFINEMENT)
-# Nach Full-Run (454 Konversationen) erneut prüfen und ggf. nachjustieren.
-THRESHOLD_HIGH: float = 0.80  # was 0.85→0.82→0.80, kalibriert 2026-04-04 gegen v2-Fingerprint (454 Konversationen)
+# Thresholds for score classification
+# Phase 6 calibration (2026-04-04, pilot fingerprint 30 conversations):
+#   - 0.85 was too high: style-conforming ChatGPT text only reached 0.8416 → never OUTPUT
+#   - 0.82 empirically appropriate: good style → HIGH, minor deviations → MEDIUM
+#   - 0.65 fits: informal texts land in MEDIUM (→ TRANSFORM), not LOW (→ REFINEMENT)
+# Re-check after full run (454 conversations) and adjust if needed.
+THRESHOLD_HIGH: float = 0.80  # was 0.85→0.82→0.80, calibrated 2026-04-04 against v2 fingerprint (454 conversations)
 THRESHOLD_LOW:  float = 0.65
 
 
 class Layer2EmbeddingChecker:
     """
-    Implementiert SemanticCheckerProtocol via Embedding-Ähnlichkeitsvergleich.
+    Implements SemanticCheckerProtocol via embedding similarity comparison.
 
-    Benötigt einen Embedding-Adapter (dediziertes Embedding-Modell, z.B. nomic-embed-text).
-    Muss dasselbe Modell wie der Trainer verwenden — sonst sind Vektoren nicht vergleichbar.
+    Requires an embedding adapter (dedicated embedding model, e.g. nomic-embed-text).
+    Must use the same model as the trainer — otherwise vectors are not comparable.
     """
 
     def __init__(
@@ -65,7 +65,7 @@ class Layer2EmbeddingChecker:
 
         return CheckResult(
             level=level,
-            details=f"Cosine-Similarity: {similarity:.4f} "
+            details=f"Cosine similarity: {similarity:.4f} "
                     f"(high≥{self._thresh_high}, low<{self._thresh_low})",
             raw_score=similarity,
         )
@@ -79,20 +79,20 @@ class Layer2EmbeddingChecker:
 
 
 # ---------------------------------------------------------------------------
-# Cosine-Similarity
-# → Rust-Kern: dieser Rechenkernel ist der primäre Kandidat für PyO3-Extraktion
+# Cosine similarity
+# → Rust core: this compute kernel is the primary candidate for PyO3 extraction
 # ---------------------------------------------------------------------------
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
     """
-    Berechnet die Cosine-Similarity zwischen zwei Vektoren.
+    Computes the cosine similarity between two vectors.
 
-    Gibt 0.0 zurück wenn einer der Vektoren Nulllänge hat.
-    Wirft ValueError bei unterschiedlichen Dimensionen.
+    Returns 0.0 if either vector has zero length.
+    Raises ValueError for vectors of different dimensions.
     """
     if len(a) != len(b):
         raise ValueError(
-            f"Vektoren haben unterschiedliche Dimensionen: {len(a)} vs {len(b)}"
+            f"Vectors have different dimensions: {len(a)} vs {len(b)}"
         )
 
     dot    = sum(x * y for x, y in zip(a, b))

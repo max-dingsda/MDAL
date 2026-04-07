@@ -1,95 +1,95 @@
 # Runtime Pipeline
 
-## Überblick
+## Overview
 
-Die Runtime Pipeline beschreibt den kontrollierten Verarbeitungsweg einer Anfrage durch MDAL. Ziel der Pipeline ist nicht nur die Erzeugung einer Modellantwort, sondern deren Einordnung gegen ein bekanntes Referenzniveau sowie – falls möglich und erforderlich – eine zusätzliche strukturbezogene Validierung.
+The runtime pipeline describes the controlled processing path of a request through MDAL. The pipeline's goal is not merely to produce a model response, but to evaluate it against a known reference level and — where possible and necessary — apply additional structure-oriented validation.
 
-Wichtig ist dabei die fachliche Trennung der Prüftiefe:
-- Bei freier Prosa erfolgt primär eine Stilprüfung gegen den Fingerprint und bei Bedarf eine Transformation.
-- Bei strukturierten Inhalten kann zusätzlich eine fachliche oder formale Validierung stattfinden, allerdings nur dann, wenn ein passendes Prüfplugin oder Schema vorhanden ist.
+An important domain-level distinction in processing depth applies:
+- For free-form prose, the primary check is a style evaluation against the fingerprint, with transformation applied if needed.
+- For structured content, additional domain-specific or formal validation may take place, but only when a matching validation plugin or schema is available.
 
-Die Pipeline ist damit kein bloßer Durchleitungsmechanismus, sondern ein gesteuerter Qualitäts- und Stabilisierungsprozess.
+The pipeline is therefore not a mere passthrough mechanism, but a controlled quality and stabilization process.
 
-## Ablauf
+## Flow
 
-### 1. Eingang der Anfrage
+### 1. Request Intake
 
-Eine konsumierende Anwendung übergibt eine Anfrage an MDAL. Diese Anfrage enthält die eigentliche Nutzlast sowie kontextuelle Informationen, die für Fingerprint-Auswahl, Session-Kontext und Verifikationsverhalten relevant sein können.
+A consuming application submits a request to MDAL. This request contains the actual payload as well as contextual information relevant to fingerprint selection, session context, and verification behavior.
 
-### 2. Vorbereitung und Kontextanreicherung
+### 2. Preparation and Context Enrichment
 
-Vor dem eigentlichen Modellaufruf wird die Anfrage in die laufende Verarbeitung eingebettet. Dazu können insbesondere gehören:
-- Auswahl oder Laden eines geeigneten Fingerprints
-- Einbeziehung von Session-Kontext
-- Aktivierung optionaler Prüfplugins
-- Setzen von Laufzeitparametern für Retry und Transformation
+Before the model call, the request is embedded into the current processing context. This may include:
+- selecting or loading an appropriate fingerprint
+- incorporating session context
+- activating optional validation plugins
+- setting runtime parameters for retry and transformation
 
-### 3. Modellaufruf
+### 3. Model Call
 
-Das Zielmodell wird über den jeweils konfigurierten Adapter angesprochen. MDAL selbst trifft hier noch keine Aussage darüber, ob die erzeugte Antwort fachlich verwendbar ist. Der Modellaufruf liefert zunächst lediglich ein Roh-Ergebnis.
+The target model is invoked via the configured adapter. At this point MDAL makes no statement about whether the generated response is domain-usable. The model call initially returns only a raw result.
 
-### 4. Prüfung gegen Referenzniveau
+### 4. Evaluation Against Reference Level
 
-Nach dem Modellaufruf wird das Ergebnis gegen das bekannte Referenzniveau eingeordnet. Bei freier Prosa bedeutet das insbesondere:
-- Prüfung der Stiltreue
-- Erkennung von Drift gegenüber dem gewünschten Antwortverhalten
-- Entscheidung, ob eine Transformation oder ein Retry sinnvoll erscheint
+After the model call, the result is evaluated against the known reference level. For free-form prose this means:
+- checking style fidelity
+- detecting drift from the expected response behavior
+- deciding whether transformation or a retry is appropriate
 
-Diese Stufe ist keine pauschale inhaltliche Qualitätsprüfung. Sie bewertet in erster Linie die Nähe zum erwarteten Zielverhalten.
+This stage is not a blanket content quality check. It evaluates primarily the proximity to the expected target behavior.
 
-### 5. Optionale Strukturvalidierung
+### 5. Optional Structure Validation
 
-Wenn das Ergebnis strukturierte Inhalte enthält und für diesen Inhaltstyp ein passendes Prüfplugin vorhanden ist, kann zusätzlich eine fachliche oder formale Validierung stattfinden.
+If the result contains structured content and a matching validation plugin is available for that content type, additional domain-specific or formal validation may take place.
 
-Beispiele:
-- XML gegen ein bekanntes Schema
-- strukturierte Artefakte gegen domänenspezifische Regeln
-- modellierte Inhalte gegen formale Konsistenzbedingungen
+Examples:
+- XML against a known schema
+- structured artifacts against domain-specific rules
+- modeled content against formal consistency conditions
 
-Fehlt ein solches Plugin, endet die Prüftiefe an der allgemeinen Stil- und Verhaltensprüfung. MDAL darf dann keine weitergehende Strukturqualität behaupten, die es faktisch nicht geprüft hat.
+If no such plugin is present, the validation depth ends at the general style and behavior check. MDAL must not claim structural quality it has not actually verified.
 
-### 6. Entscheidung über Freigabe, Transformation, Retry oder Eskalation
+### 6. Decision on Release, Transformation, Retry, or Escalation
 
-Auf Basis der verfügbaren Prüfergebnisse entscheidet MDAL über das weitere Vorgehen:
-- direkte Freigabe
-- Transformation
-- erneuter Modelllauf
-- Eskalation
+Based on the available verification results, MDAL decides on the next course of action:
+- direct release
+- transformation
+- new model run
+- escalation
 
-Die Entscheidung hängt dabei sowohl vom Inhaltstyp als auch von der tatsächlich verfügbaren Prüfbasis ab.
+The decision depends on both the content type and the actually available verification basis.
 
-## Pipeline im Überblick
+## Pipeline Overview
 
 ```mermaid
 flowchart TD
-    A[Anfrage aus Anwendung] --> B[Kontextanreicherung / Fingerprint-Auswahl]
-    B --> C[LLM Adapter / Modellaufruf]
-    C --> D[Antwort liegt vor]
-    D --> E[Prüfung gegen Referenzniveau]
+    A[Request from Application] --> B[Context Enrichment / Fingerprint Selection]
+    B --> C[LLM Adapter / Model Call]
+    C --> D[Response available]
+    D --> E[Evaluation Against Reference Level]
 
-    E --> F{Strukturierter Inhalt?}
-    F -- Nein --> G[Stilprüfung / Transformation]
-    F -- Ja --> H{Passendes Prüfplugin vorhanden?}
+    E --> F{Structured Content?}
+    F -- No --> G[Style Check / Transformation]
+    F -- Yes --> H{Matching Plugin Available?}
 
-    H -- Ja --> I[Formale / fachliche Validierung]
-    H -- Nein --> J[Keine weitergehende Strukturprüfung]
+    H -- Yes --> I[Formal / Domain Validation]
+    H -- No --> J[No Further Structure Validation]
 
-    G --> K{Akzeptierbar?}
+    G --> K{Acceptable?}
     I --> K
     J --> K
 
-    K -- Ja --> L[Freigabe]
-    K -- Nein --> M{Retry / Transformation sinnvoll?}
-    M -- Ja --> N[Transformation oder Retry]
+    K -- Yes --> L[Release]
+    K -- No --> M{Retry / Transformation Useful?}
+    M -- Yes --> N[Transformation or Retry]
     N --> C
-    M -- Nein --> O[Eskalation]
+    M -- No --> O[Escalation]
 ```
 
-## Fachliche Einordnung
+## Domain Classification
 
-Die Runtime Pipeline operationalisiert den Kernanspruch von MDAL: Schwankungen des Modellverhaltens sollen nicht ungefiltert beim Nutzer ankommen. Gleichzeitig wird bewusst vermieden, der Pipeline mehr Prüftiefe zuzuschreiben, als tatsächlich vorhanden ist.
+The runtime pipeline operationalizes MDAL's core claim: fluctuations in model behavior must not reach the user unfiltered. At the same time, it deliberately avoids attributing more validation depth to the pipeline than actually exists.
 
-Daraus ergibt sich eine klare Trennung:
-- Prosa wird primär auf Stiltreue und Verhaltensnähe zum Referenzniveau geprüft.
-- Strukturierte Inhalte können zusätzlich validiert werden, aber nur mit passendem Plugin.
-- Ohne Plugin ist die Aussagekraft über Struktur begrenzt und muss entsprechend behandelt werden.
+This results in a clear separation:
+- Prose is evaluated primarily for style fidelity and behavioral proximity to the reference level.
+- Structured content may be additionally validated, but only with a matching plugin.
+- Without a plugin, the expressiveness regarding structure is limited and must be treated accordingly.

@@ -1,16 +1,16 @@
 """
-Audit Writer (F4, NF5) — write-only, betreiberseitig konfigurierbar.
+Audit Writer (F4, NF5) — write-only, operator-configurable.
 
-Das System schreibt Prüf- und Transformationsereignisse in ein externes Audit-Ziel.
-Es liest, bearbeitet oder löscht niemals externe Daten — ausschließlich append-only.
+The system writes verification and transformation events to an external audit target.
+It never reads, modifies, or deletes external data — strictly append-only.
 
-Speicherort, Aufbewahrungsdauer und Löschzeitpunkt liegen vollständig
-in der Verantwortung des Betreibers.
+Storage location, retention period, and deletion schedule are entirely
+the operator's responsibility.
 
-Unterstützte Targets (v1):
-  - file: JSONL-Datei, append-only
+Supported targets (v1):
+  - file: JSONL file, append-only
 
-Geplante Targets (nach PoC):
+Planned targets (after PoC):
   - postgresql, mysql, mssql (NF5)
 """
 
@@ -25,16 +25,16 @@ from mdal.config import AuditConfig
 
 
 class AuditWriteError(Exception):
-    """Wird geworfen wenn ein Audit-Event nicht geschrieben werden kann."""
+    """Raised when an audit event cannot be written."""
 
 
 class AuditWriter:
     """
-    Write-only Audit Writer.
+    Write-only audit writer.
 
-    Jedes Event wird als einzelne JSON-Zeile (JSONL) geschrieben.
-    Das Format ist bewusst einfach — der Betreiber entscheidet über Rotation,
-    Archivierung und Löschung.
+    Each event is written as a single JSON line (JSONL).
+    The format is deliberately simple — the operator decides on rotation,
+    archiving, and deletion.
     """
 
     def __init__(self, config: AuditConfig) -> None:
@@ -42,14 +42,14 @@ class AuditWriter:
 
     def write(self, event_type: str, data: dict[str, Any]) -> None:
         """
-        Schreibt ein Audit-Event.
+        Writes an audit event.
 
-        event_type: Kurze Beschreibung des Ereignisses, z.B.:
+        event_type: Short description of the event, e.g.:
             "check.passed", "check.failed", "retry.attempt",
             "retry.exhausted", "transform.applied", "escalation.admin"
 
-        data: Ereignis-spezifische Felder — werden mit Timestamp und event_type
-              zu einem Audit-Eintrag zusammengeführt.
+        data: Event-specific fields — merged with timestamp and event_type
+              into a single audit entry.
         """
         entry: dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -60,10 +60,10 @@ class AuditWriter:
         if self._config.target == "file":
             self._write_file(entry)
         else:
-            # Placeholder für DB-Targets — wird nach PoC-Validierung implementiert
+            # Placeholder for DB targets — implemented after PoC validation
             raise NotImplementedError(
-                f"Audit-Target '{self._config.target}' ist noch nicht implementiert. "
-                f"Verfügbar: 'file'"
+                f"Audit target '{self._config.target}' is not yet implemented. "
+                f"Available: 'file'"
             )
 
     def _write_file(self, entry: dict[str, Any]) -> None:
@@ -75,7 +75,7 @@ class AuditWriter:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
         except OSError as exc:
             raise AuditWriteError(
-                f"Audit-Log konnte nicht geschrieben werden ({path}): {exc}"
+                f"Audit log could not be written ({path}): {exc}"
             ) from exc
 
 

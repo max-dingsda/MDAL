@@ -1,4 +1,4 @@
-# Kern-Bibliotheken für den MDAL-Proxy
+# Core libraries for the MDAL proxy
 fastapi>=0.100.0
 uvicorn>=0.23.0
 pydantic>=2.0.0
@@ -7,9 +7,9 @@ PyYAML>=6.0
 langdetect>=1.0.9
 
 # ---------------------------------------------------------
-# Optionale Datenbank-Treiber für das Audit-Log (NF5)
-# (Nur einkommentieren, wenn audit.target nicht "file" ist)
+# Optional database drivers for the audit log (NF5)
+# (Uncomment only if audit.target is not "file")
 # ---------------------------------------------------------
-# psycopg2-binary>=2.9.9  # Für target: postgresql
-# pymysql>=1.1.0          # Für target: mysql
-# pyodbc>=4.0.39          # Für target: mssql
+# psycopg2-binary>=2.9.9  # for target: postgresql
+# pymysql>=1.1.0          # for target: mysql
+# pyodbc>=4.0.39          # for target: mssql

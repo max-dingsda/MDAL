@@ -1,4 +1,4 @@
-"""Unit-Tests für RetryController."""
+"""Unit tests for RetryController."""
 
 from unittest.mock import MagicMock, call
 
@@ -15,7 +15,7 @@ def make_context() -> SessionContext:
 
 
 def make_result(decision: ScoringDecision) -> VerificationResult:
-    """Minimales VerificationResult für den angegebenen ScoringDecision."""
+    """Minimal VerificationResult for the given ScoringDecision."""
     return VerificationResult(
         decision         = decision,
         structure_result = None,
@@ -31,12 +31,12 @@ def make_notifier() -> MagicMock:
 
 
 class TestRetryControllerOutput:
-    """OUTPUT-Entscheidung → sofortige Rückgabe ohne Transform."""
+    """OUTPUT decision → immediate return without transform."""
 
     def test_output_on_first_attempt(self):
         notifier    = make_notifier()
         controller  = RetryController(max_retries=3, notifier=notifier)
-        initial     = MagicMock(return_value="gute Antwort")
+        initial     = MagicMock(return_value="good answer")
         refine      = MagicMock()
         verify      = MagicMock(return_value=make_result(ScoringDecision.OUTPUT))
         transform   = MagicMock()
@@ -49,7 +49,7 @@ class TestRetryControllerOutput:
             transform    = transform,
         )
 
-        assert result == "gute Antwort"
+        assert result == "good answer"
         initial.assert_called_once()
         refine.assert_not_called()
         transform.assert_not_called()
@@ -58,8 +58,8 @@ class TestRetryControllerOutput:
     def test_output_after_refinement(self):
         notifier   = make_notifier()
         controller = RetryController(max_retries=3, notifier=notifier)
-        initial    = MagicMock(return_value="schlechte Antwort")
-        refine     = MagicMock(return_value="gute Antwort")
+        initial    = MagicMock(return_value="bad answer")
+        refine     = MagicMock(return_value="good answer")
         decisions  = [
             make_result(ScoringDecision.REFINEMENT),
             make_result(ScoringDecision.OUTPUT),
@@ -75,21 +75,21 @@ class TestRetryControllerOutput:
             transform    = transform,
         )
 
-        assert result == "gute Antwort"
+        assert result == "good answer"
         assert initial.call_count == 1
         assert refine.call_count == 1
         assert verify.call_count == 2
 
 
 class TestRetryControllerTransform:
-    """TRANSFORM-Entscheidung → Transformer anwenden."""
+    """TRANSFORM decision → apply transformer."""
 
     def test_transform_on_first_attempt(self):
         notifier   = make_notifier()
         controller = RetryController(max_retries=3, notifier=notifier)
-        initial    = MagicMock(return_value="mittelmäßige Antwort")
+        initial    = MagicMock(return_value="mediocre answer")
         verify     = MagicMock(return_value=make_result(ScoringDecision.TRANSFORM))
-        transform  = MagicMock(return_value="angepasste Antwort")
+        transform  = MagicMock(return_value="adjusted answer")
 
         result = controller.run(
             context      = make_context(),
@@ -99,20 +99,20 @@ class TestRetryControllerTransform:
             transform    = transform,
         )
 
-        assert result == "angepasste Antwort"
-        transform.assert_called_once_with("mittelmäßige Antwort")
+        assert result == "adjusted answer"
+        transform.assert_called_once_with("mediocre answer")
 
     def test_transform_after_refinement(self):
         notifier   = make_notifier()
         controller = RetryController(max_retries=3, notifier=notifier)
-        initial    = MagicMock(return_value="schlechte Antwort")
-        refine     = MagicMock(return_value="mittelmäßige Antwort")
+        initial    = MagicMock(return_value="bad answer")
+        refine     = MagicMock(return_value="mediocre answer")
         decisions  = [
             make_result(ScoringDecision.REFINEMENT),
             make_result(ScoringDecision.TRANSFORM),
         ]
         verify    = MagicMock(side_effect=decisions)
-        transform = MagicMock(return_value="angepasste Antwort")
+        transform = MagicMock(return_value="adjusted answer")
 
         result = controller.run(
             context      = make_context(),
@@ -122,16 +122,16 @@ class TestRetryControllerTransform:
             transform    = transform,
         )
 
-        assert result == "angepasste Antwort"
-        transform.assert_called_once_with("mittelmäßige Antwort")
+        assert result == "adjusted answer"
+        transform.assert_called_once_with("mediocre answer")
 
     def test_transform_does_not_count_as_llm_call(self):
-        """Transformer darf max_retries nicht beeinflussen (F5)."""
+        """Transformer must not affect max_retries (F5)."""
         notifier   = make_notifier()
         controller = RetryController(max_retries=1, notifier=notifier)
         initial    = MagicMock(return_value="ok")
         verify     = MagicMock(return_value=make_result(ScoringDecision.TRANSFORM))
-        transform  = MagicMock(return_value="transformiert")
+        transform  = MagicMock(return_value="transformed")
 
         result = controller.run(
             context      = make_context(),
@@ -141,7 +141,7 @@ class TestRetryControllerTransform:
             transform    = transform,
         )
 
-        assert result == "transformiert"
+        assert result == "transformed"
         notifier.notify_escalation.assert_not_called()
 
 
@@ -151,8 +151,8 @@ class TestRetryControllerRefinement:
     def test_limit_exhausted_raises(self):
         notifier   = make_notifier()
         controller = RetryController(max_retries=2, notifier=notifier)
-        initial    = MagicMock(return_value="Antwort 1")
-        refine     = MagicMock(return_value="Antwort 2")
+        initial    = MagicMock(return_value="answer 1")
+        refine     = MagicMock(return_value="answer 2")
         verify     = MagicMock(return_value=make_result(ScoringDecision.REFINEMENT))
 
         with pytest.raises(RetryLimitError) as exc_info:
@@ -192,7 +192,7 @@ class TestRetryControllerRefinement:
         with pytest.raises(RetryLimitError) as exc_info:
             controller.run(
                 context      = make_context(),
-                initial_call = MagicMock(return_value="schlecht"),
+                initial_call = MagicMock(return_value="bad"),
                 refine_call  = MagicMock(),
                 verify       = MagicMock(return_value=make_result(ScoringDecision.REFINEMENT)),
                 transform    = MagicMock(),
@@ -201,36 +201,36 @@ class TestRetryControllerRefinement:
         assert exc_info.value.attempts == 1
 
     def test_refine_called_with_error_summary(self):
-        """refine_call bekommt den error_summary aus dem VerificationResult."""
+        """refine_call receives the error_summary from the VerificationResult."""
         notifier   = make_notifier()
         controller = RetryController(max_retries=3, notifier=notifier)
 
         bad_result  = make_result(ScoringDecision.REFINEMENT)
         good_result = make_result(ScoringDecision.OUTPUT)
-        # Füge einen Fehler ein damit error_summary nicht leer ist
+        # Insert an error so error_summary is not empty
         bad_result.semantic_s1 = CheckResult(
-            level=ScoreLevel.LOW, details="Stilregel verletzt"
+            level=ScoreLevel.LOW, details="Style rule violated"
         )
 
-        refine = MagicMock(return_value="besser")
+        refine = MagicMock(return_value="better")
         verify = MagicMock(side_effect=[bad_result, good_result])
 
         controller.run(
             context      = make_context(),
-            initial_call = MagicMock(return_value="schlecht"),
+            initial_call = MagicMock(return_value="bad"),
             refine_call  = refine,
             verify       = verify,
             transform    = MagicMock(),
         )
 
-        # refine_call muss mit (prev_output, error_summary) aufgerufen worden sein
+        # refine_call must be called with (prev_output, error_summary)
         refine.assert_called_once()
         args = refine.call_args[0]
-        assert args[0] == "schlecht"
-        assert "Stilregel verletzt" in args[1]
+        assert args[0] == "bad"
+        assert "Style rule violated" in args[1]
 
     def test_exact_retry_count_with_three_attempts(self):
-        """Drei Versuche: initial + 2 Refinements → Limit bei max_retries=3."""
+        """Three attempts: initial + 2 refinements → limit at max_retries=3."""
         notifier   = make_notifier()
         controller = RetryController(max_retries=3, notifier=notifier)
         initial    = MagicMock(return_value="v1")
@@ -248,7 +248,7 @@ class TestRetryControllerRefinement:
 
         assert exc_info.value.attempts == 3
         assert initial.call_count == 1
-        assert refine.call_count == 2     # 2 Refinements nach initial
+        assert refine.call_count == 2     # 2 refinements after initial
 
 
 class TestRetryControllerInit:

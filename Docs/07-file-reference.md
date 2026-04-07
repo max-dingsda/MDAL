@@ -1,214 +1,214 @@
-# Datei-Referenz
+# File Reference
 
-Diese Referenz beschreibt den **tatsächlichen Zweck der vorhandenen Dateien** im aktuellen Repository.
+This reference describes the **actual purpose of the existing files** in the current repository.
 
-## Top-Level-Dateien
+## Top-Level Files
 
 ### `.gitignore`
-Ignoriert u. a. lokale Konfigurationen und typische Build-/Python-Artefakte.
+Ignores local configurations and typical build/Python artifacts, among others.
 
 ### `CLAUDE.md`
-Arbeits-/Hinweisdatei für die Entwicklung mit Claude bzw. KI-gestütztem Workflow.
+Working/guidance file for development with Claude and AI-assisted workflows.
 
 ### `MDAL-Architekturskizze-v05.docx`
-Architekturartefakt außerhalb des Python-Codes; dient als begleitende Skizze.
+Architecture artifact outside the Python code; serves as an accompanying sketch.
 
 ### `MDAL-Stack-Entscheidung.md`
-Begründet die Zielarchitektur **Rust-Kern + Python-Adapter** und ordnet den Python-Code explizit als PoC ein.
+Justifies the target architecture **Rust core + Python adapter** and explicitly classifies the Python code as a PoC.
 
 ### `bearbeitungshinweise.txt`
-Enthält drei konkrete Doku-/Designhinweise:
-- Kalibrierungssensitivität in Layer 1
-- tolerierter Offline-Fallback im Trainer
-- Umgang mit malformed JSON in der Format-Erkennung
+Contains three concrete documentation/design notes:
+- calibration sensitivity in Layer 1
+- tolerated offline fallback in the trainer
+- handling of malformed JSON in format detection
 
 ### `llm-normalization-layer-anforderungen.md`
-Anforderungsbasis für den PoC; referenziert die funktionalen IDs F1–F20 und non-funktionale Leitplanken.
+Requirements basis for the PoC; references functional IDs F1–F20 and non-functional guardrails.
 
 ### `phasenplanung.txt`
-Beschreibt die geplanten Umsetzungsphasen und nennt explizit noch offene Stabilitäts- und Go-Live-Fixes.
+Describes the planned implementation phases and explicitly names open stability and go-live fixes.
 
 ### `pyproject.toml`
-Definiert Paket-Metadaten, Dependencies, optionale Dev-Dependencies und die CLI-Skripte:
+Defines package metadata, dependencies, optional dev-dependencies, and the CLI scripts:
 - `mdal-server`
 - `mdal-train`
 
 ### `config/mdal.yaml`
-Beispielkonfiguration für LLM, Embedding, Fingerprint-Pfade, Plugin-Registry, Audit, Checks, Notifier und optionales Fallback-Modell.
+Example configuration for LLM, embedding, fingerprint paths, plugin registry, audit, checks, notifier, and optional fallback model.
 
 ---
 
-## Paket `mdal/`
+## Package `mdal/`
 
 ### `mdal/__init__.py`
-Paketmarker.
+Package marker.
 
 ### `mdal/audit.py`
-Write-only Audit-Komponente. Schreibt Ereignisse aktuell als JSONL in Dateien; DB-Ziele sind vorbereitet, aber noch nicht implementiert.
+Write-only audit component. Currently writes events as JSONL to files; database targets are prepared but not yet implemented.
 
 ### `mdal/config.py`
-Lädt und validiert die YAML-Konfiguration. Enthält Pydantic-Modelle für alle Konfigurationsbereiche und Runtime-Pfadprüfung.
+Loads and validates the YAML configuration. Contains Pydantic models for all configuration areas and runtime path verification.
 
 ### `mdal/notifier.py`
-Admin-Benachrichtigung für Eskalationen und Fähigkeits-Asymmetrie. Unterstützt Logdatei und Webhook.
+Admin notification for escalations and capability asymmetry. Supports log file and webhook.
 
 ### `mdal/pipeline.py`
-Zentraler Laufzeit-Orchestrator. Baut SessionContext, lädt Fingerprint, setzt Status und delegiert die Entscheidungsschleife an den RetryController.
+Central runtime orchestrator. Builds SessionContext, loads fingerprint, sets status, and delegates the decision loop to RetryController.
 
 ### `mdal/retry.py`
-Implementiert die Retry-Logik inklusive Eskalation und `RetryLimitError`.
+Implements retry logic including escalation and `RetryLimitError`.
 
 ### `mdal/session.py`
-Ephemerer Session-Kontext für einen Request-/Session-Lauf.
+Ephemeral session context for a single request/session run.
 
 ### `mdal/status.py`
-Definiert Statusmeldungen und Reporter-Implementierungen, z. B. Queue-/Logging-basierte Reporter.
+Defines status messages and reporter implementations, e.g. queue-based and logging-based reporters.
 
 ### `mdal/transformer.py`
-LLM-basierter Tone-Transformer inkl. Confidence-Scoring und Faktentreue-Prüfung.
+LLM-based tone transformer including confidence scoring and factual accuracy check.
 
 ---
 
-## Unterpaket `mdal/fingerprint/`
+## Sub-Package `mdal/fingerprint/`
 
 ### `mdal/fingerprint/__init__.py`
-Paketmarker.
+Package marker.
 
 ### `mdal/fingerprint/models.py`
-Fingerprint-Datenmodell, inklusive:
+Fingerprint data model, including:
 - StyleRules
 - EmbeddingProfile
 - GoldenSamples
-- Conversation-Importmodell für den Trainer
+- Conversation import model for the trainer
 
 ### `mdal/fingerprint/store.py`
-Versionierter dateisystembasierter Store mit `save`, `load_current`, `load_version`, `list_versions`, `rollback`.
+Versioned filesystem-based store with `save`, `load_current`, `load_version`, `list_versions`, `rollback`.
 
 ---
 
-## Unterpaket `mdal/interfaces/`
+## Sub-Package `mdal/interfaces/`
 
 ### `mdal/interfaces/__init__.py`
-Paketmarker.
+Package marker.
 
 ### `mdal/interfaces/fingerprint.py`
-Protokoll-/Schnittstellenmodul für Fingerprint-nahe Komponenten.
+Protocol/interface module for fingerprint-adjacent components.
 
 ### `mdal/interfaces/llm.py`
-Protokoll für LLM-/Embedding-Adapter.
+Protocol for LLM/embedding adapters.
 
 ### `mdal/interfaces/scoring.py`
-Gemeinsame Typen und Enums für Check-Ergebnisse, Score-Levels, Strukturresultate und Scoring-Entscheidungen.
+Shared types and enums for check results, score levels, structure results, and scoring decisions.
 
 ### `mdal/interfaces/transformer.py`
-Protokoll für Transformer-Komponenten.
+Protocol for transformer components.
 
 ---
 
-## Unterpaket `mdal/llm/`
+## Sub-Package `mdal/llm/`
 
 ### `mdal/llm/__init__.py`
-Paketmarker.
+Package marker.
 
 ### `mdal/llm/adapter.py`
-OpenAI-kompatibler HTTP-Adapter für Chat-Completions, Embeddings und Health-Checks.
+OpenAI-compatible HTTP adapter for chat completions, embeddings, and health checks.
 
 ---
 
-## Unterpaket `mdal/plugins/`
+## Sub-Package `mdal/plugins/`
 
 ### `mdal/plugins/__init__.py`
-Paketmarker.
+Package marker.
 
 ### `mdal/plugins/registry.py`
-Lädt Plugin-Ordner aus dem Dateisystem, validiert `manifest.json` und stellt Lookup-Methoden bereit.
+Loads plugin folders from the filesystem, validates `manifest.json`, and provides lookup methods.
 
 ---
 
-## Unterpaket `mdal/proxy/`
+## Sub-Package `mdal/proxy/`
 
 ### `mdal/proxy/__init__.py`
-Paketmarker.
+Package marker.
 
 ### `mdal/proxy/app.py`
-FastAPI-App mit Endpunkten, Error-Handling, Health-Check, Audit-Schreiben und Anbindung an die Pipeline.
+FastAPI app with endpoints, error handling, health check, audit writing, and pipeline integration.
 
 ### `mdal/proxy/models.py`
-OpenAI-kompatible Request-/Response-Modelle.
+OpenAI-compatible request/response models.
 
 ### `mdal/proxy/server.py`
-CLI-Einstiegspunkt zum Start des Proxys inkl. Konfigurationsladen und Uvicorn-Bootstrap.
+CLI entry point for starting the proxy, including config loading and Uvicorn bootstrap.
 
 ### `mdal/proxy/startup.py`
-Factory-Modul zum Verdrahten sämtlicher Komponenten zur vollständigen Pipeline.
+Factory module for wiring all components into a complete pipeline.
 
 ---
 
-## Unterpaket `mdal/trainer/`
+## Sub-Package `mdal/trainer/`
 
 ### `mdal/trainer/__init__.py`
-Paketmarker.
+Package marker.
 
 ### `mdal/trainer/trainer.py`
-Offline-Trainingsmodul inklusive:
-- Fingerprint-Erzeugung
-- JSON-Extraktion aus LLM-Antworten
-- Konversationsdatei-Import
-- CLI-Einstiegspunkt
+Offline training module including:
+- fingerprint generation
+- JSON extraction from LLM responses
+- conversation file import
+- CLI entry point
 
 ---
 
-## Unterpaket `mdal/verification/`
+## Sub-Package `mdal/verification/`
 
 ### `mdal/verification/__init__.py`
-Paketmarker.
+Package marker.
 
 ### `mdal/verification/detector.py`
-Format-Erkennung für JSON, XML und Prosa.
+Format detection for JSON, XML, and prose.
 
 ### `mdal/verification/engine.py`
-Gesamt-Orchestrierung aller aktiven Prüfungen und Ableitung eines `VerificationResult`.
+Overall orchestration of all active checks and derivation of a `VerificationResult`.
 
 ### `mdal/verification/structure.py`
-Zweistufige Strukturprüfung für strukturierte Outputs, inklusive Plugin-Nutzung.
+Two-stage structure check for structured outputs, including plugin usage.
 
 ### `mdal/verification/semantic/__init__.py`
-Paketmarker.
+Package marker.
 
 ### `mdal/verification/semantic/layer1.py`
-Deterministische Stilprüfung gegen StyleRules.
+Deterministic style check against StyleRules.
 
 ### `mdal/verification/semantic/layer2.py`
-Embedding-basierte Stilprüfung via Cosine Similarity.
+Embedding-based style check via cosine similarity.
 
 ### `mdal/verification/semantic/layer3.py`
-LLM-as-Judge für Grenzfälle.
+LLM-as-Judge for edge cases.
 
 ### `mdal/verification/semantic/scorer.py`
-Entscheidungslogik zwischen OUTPUT, TRANSFORM, REFINEMENT und TIEBREAK.
+Decision logic between OUTPUT, TRANSFORM, REFINEMENT, and TIEBREAK.
 
 ---
 
 ## Tests
 
 ### `tests/__init__.py`
-Paketmarker.
+Package marker.
 
 ### `tests/unit/*.py`
-Modulnahe Unit-Tests für Kernkomponenten.
+Module-level unit tests for core components.
 
 ### `tests/integration/*.py`
-Integrationspfade über mehrere Komponenten und API-Layer.
+Integration paths across multiple components and the API layer.
 
 ### `tests/regression/test_scoring_decisions.py`
-Sichert die Entscheidungstabelle mit Fixture-Daten ab.
+Secures the decision table with fixture data.
 
 ### `tests/regression/fixtures/scorer_decisions.json`
-Fixture-Datei für Regressionstests der Scoring-Engine.
+Fixture file for regression tests of the scoring engine.
 
 ---
 
-## Praktische Lesereihenfolge für neue Entwickler
+## Recommended Reading Order for New Developers
 
 1. `pyproject.toml`
 2. `config/mdal.yaml`

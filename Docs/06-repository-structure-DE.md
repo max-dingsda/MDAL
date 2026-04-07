@@ -1,6 +1,6 @@
-# Repository Structure
+# Repository-Struktur
 
-## Top Level
+## Top-Level
 
 ```text
 MDAL-main/
@@ -18,34 +18,34 @@ MDAL-main/
 └── pyproject.toml
 ```
 
-## Meaning of Top-Level Areas
+## Bedeutung der Top-Level-Bereiche
 
 ### `mdal/`
-Production code of the Python PoC.
+Produktionscode des Python-PoC.
 
 ### `tests/`
-Automated tests, split into:
+Automatisierte Tests, getrennt in:
 
 - `unit/`
 - `integration/`
 - `regression/`
 
 ### `config/`
-Example configuration (`mdal.yaml`).
+Beispielkonfiguration (`mdal.yaml`).
 
 ### `MDAL-Stack-Entscheidung.md`
-Architecture decision on the technology stack.
+Architekturentscheidung zum Technologie-Stack.
 
 ### `llm-normalization-layer-anforderungen.md`
-Requirements document with functional guardrails.
+Anforderungsdokument mit den funktionalen Leitplanken.
 
 ### `phasenplanung.txt`
-Roadmap and open pre-go-live fixes.
+Roadmap und offene Pre-Go-Live-Fixes.
 
 ### `bearbeitungshinweise.txt`
-Documents domain-relevant observations from prior work.
+Dokumentiert fachlich relevante Beobachtungen aus der bisherigen Arbeit.
 
-## Structure within `mdal/`
+## Struktur innerhalb von `mdal/`
 
 ```text
 mdal/
@@ -96,7 +96,7 @@ mdal/
         └── scorer.py
 ```
 
-## Dependency Direction (Rough Overview)
+## Abhängigkeitsrichtung in groben Zügen
 
 ```mermaid
 flowchart LR
@@ -119,10 +119,10 @@ flowchart LR
     Startup --> Config
 ```
 
-## Test Structure
+## Teststruktur
 
-### Unit Tests
-Test individual modules in isolation, e.g.:
+### Unit-Tests
+Prüfen einzelne Module isoliert, z. B.:
 
 - Audit
 - Config
@@ -133,13 +133,13 @@ Test individual modules in isolation, e.g.:
 - Transformer
 - Trainer
 
-### Integration Tests
-Test the interaction of multiple components, e.g.:
+### Integrationstests
+Prüfen das Zusammenspiel mehrerer Komponenten, z. B.:
 
-- API proxy
-- structured pipeline
-- prose pipeline
-- retry escalation
+- API-Proxy
+- strukturierte Pipeline
+- Prosa-Pipeline
+- Retry-Eskalation
 
-### Regression Tests
-Secure known decision cases, in particular the scoring decisions.
+### Regressionstests
+Sichern bekannte Entscheidungsfälle, insbesondere die Scoring-Entscheidungen.

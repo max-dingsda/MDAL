@@ -1,16 +1,16 @@
 """
-Retry-Steuerung (F5).
+Retry control (F5).
 
-Regelt die Schleife aus LLM-Aufruf → Prüfung → Entscheidung:
+Controls the loop of LLM call → verification → decision:
 
-  - Maximal `max_retries` LLM-Aufrufe (konfigurierbar, Default 3).
-  - Transformer-Aufruf zählt NICHT als LLM-Aufruf (F5).
-  - Bei Erschöpfung: Admin benachrichtigen (F5), RetryLimitError werfen.
-  - Output wird bei Erschöpfung zurückgehalten (nicht an Client weitergeleitet).
+  - At most `max_retries` LLM calls (configurable, default 3).
+  - Transformer call does NOT count as an LLM call (F5).
+  - On exhaustion: notify admin (F5), raise RetryLimitError.
+  - Output is withheld on exhaustion (not forwarded to client).
 
-Schnittstelle bewusst als Callable-Parameter gehalten, damit:
-  a) RetryController ohne konkrete Pipeline-Abhängigkeiten testbar ist
-  b) Die Rust-Extraktion dieses Kerns später erleichtert wird
+The interface is deliberately kept as callable parameters so that:
+  a) RetryController can be tested without concrete pipeline dependencies
+  b) Future Rust extraction of this core is simplified
 """
 
 from __future__ import annotations
@@ -25,16 +25,16 @@ from mdal.verification.engine import VerificationResult
 
 class RetryLimitError(Exception):
     """
-    Retry-Limit erschöpft — kein konformer Output produzierbar (F5).
+    Retry limit exhausted — no conforming output producible (F5).
 
-    Der Output wird NICHT an den Client weitergeleitet.
-    Der Admin wurde über AdminNotifier.notify_escalation informiert.
+    The output is NOT forwarded to the client.
+    The admin has been notified via AdminNotifier.notify_escalation.
     """
 
     def __init__(self, session_id: str, attempts: int) -> None:
         super().__init__(
-            f"Retry-Limit ({attempts}) erschöpft für Session {session_id}. "
-            "Output wurde zurückgehalten."
+            f"Retry limit ({attempts}) exhausted for session {session_id}. "
+            "Output was withheld."
         )
         self.session_id = session_id
         self.attempts   = attempts
@@ -42,22 +42,22 @@ class RetryLimitError(Exception):
 
 class RetryController:
     """
-    Orchestriert die Retry-Schleife der MDAL-Pipeline.
+    Orchestrates the retry loop of the MDAL pipeline.
 
-    Ablauf je Durchlauf:
-      1. LLM aufrufen (initial_call beim ersten Mal, refine_call danach)
-      2. Output prüfen (verify)
-      3. Entscheidung auswerten:
-         - OUTPUT    → Output zurückgeben (fertig)
-         - TRANSFORM → Transformer anwenden, Output zurückgeben (fertig)
-         - REFINEMENT → Retry, falls Limit nicht erreicht; sonst eskalieren
+    Flow per iteration:
+      1. Call LLM (initial_call on the first pass, refine_call thereafter)
+      2. Verify output (verify)
+      3. Evaluate decision:
+         - OUTPUT    → return output (done)
+         - TRANSFORM → apply transformer, return output (done)
+         - REFINEMENT → retry if limit not reached; otherwise escalate
 
-    Der Transformer zählt nicht als LLM-Aufruf (F5).
+    The transformer does not count as an LLM call (F5).
     """
 
     def __init__(self, max_retries: int, notifier: AdminNotifier) -> None:
         if max_retries < 1:
-            raise ValueError("max_retries muss mindestens 1 sein")
+            raise ValueError("max_retries must be at least 1")
         self._max      = max_retries
         self._notifier = notifier
 
@@ -70,24 +70,24 @@ class RetryController:
         transform:    Callable[[str], str],
     ) -> str:
         """
-        Führt die Retry-Schleife aus und gibt den finalen Output zurück.
+        Executes the retry loop and returns the final output.
 
         Parameters
         ----------
-        context:      Aktiver Session-Kontext (wird bei record_check befüllt).
-        initial_call: Callable ohne Parameter → erster LLM-Aufruf.
-        refine_call:  Callable(prev_output, error_summary) → verfeinerter LLM-Aufruf.
+        context:      Active session context (populated during record_check).
+        initial_call: Callable with no parameters → first LLM call.
+        refine_call:  Callable(prev_output, error_summary) → refined LLM call.
         verify:       Callable(output, context) → VerificationResult.
-        transform:    Callable(output) → transformierter Output (kein LLM).
+        transform:    Callable(output) → transformed output (no LLM).
 
         Returns
         -------
-        str: Finaler Output (direkt oder nach Transformer).
+        str: Final output (direct or after transformer).
 
         Raises
         ------
-        RetryLimitError: Wenn max_retries LLM-Aufrufe verbraucht wurden ohne
-                         konformen Output. Admin wurde benachrichtigt.
+        RetryLimitError: When max_retries LLM calls have been consumed without
+                         a conforming output. Admin has been notified.
         """
         attempts = 0
         output   = initial_call()
@@ -102,7 +102,7 @@ class RetryController:
             if result.decision == ScoringDecision.TRANSFORM:
                 return transform(output)
 
-            # REFINEMENT: weiterer LLM-Aufruf nötig
+            # REFINEMENT: another LLM call required
             if attempts >= self._max:
                 self._notifier.notify_escalation(
                     session_id  = context.session_id,

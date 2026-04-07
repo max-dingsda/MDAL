@@ -1,8 +1,8 @@
 """
-Fingerprint-Matcher Protocol — Nahtstelle für spätere Rust-Extraktion.
+Fingerprint matcher protocol — interface for future Rust extraction.
 
-Der mathematische Kern des Embedding-Vergleichs (Schicht 2) ist
-rechenintensiv und ein klarer Kandidat für den Rust-Kern.
+The mathematical core of the embedding comparison (Layer 2) is
+computationally intensive and a clear candidate for the Rust core.
 """
 
 from typing import Protocol, runtime_checkable
@@ -11,13 +11,13 @@ from typing import Protocol, runtime_checkable
 @runtime_checkable
 class FingerprintMatcherProtocol(Protocol):
     """
-    Berechnet die Ähnlichkeit zwischen dem Embedding eines aktuellen
-    Outputs und dem Ziel-Embedding aus dem Fingerprint.
+    Computes the similarity between the embedding of a current output
+    and the target embedding from the fingerprint.
 
-    Gibt einen Wert zwischen 0.0 (keine Ähnlichkeit) und 1.0 (identisch) zurück.
-    Die Schwellwerte für low/medium/high werden extern konfiguriert.
+    Returns a value between 0.0 (no similarity) and 1.0 (identical).
+    Thresholds for low/medium/high are configured externally.
 
-    → Rust-Kern (Zielarchitektur): Cosine-Similarity auf float-Vektoren
+    → Rust core (target architecture): cosine similarity on float vectors
     """
 
     def similarity(

@@ -1,113 +1,113 @@
 # Trainer and Fingerprint
 
-## Überblick
+## Overview
 
-Der Trainer- und Fingerprint-Bereich beschreibt, wie MDAL ein bekanntes Referenzniveau für erwartbares Modellverhalten aufbaut und zur Laufzeit nutzt. Der zentrale Gedanke ist dabei nicht, einem Modell einfach einen gewünschten Stil per Prompt mitzugeben, sondern ein belastbares Vergleichsniveau zu schaffen, gegen das Antworten später eingeordnet werden können.
+The trainer and fingerprint area describes how MDAL builds a known reference level for expected model behavior and uses it at runtime. The central idea is not simply to provide a desired style to a model via a prompt, but to establish a reliable comparison level against which responses can later be evaluated.
 
-Gerade darin unterscheidet sich der Fingerprint von einer bloßen Prompt-Vorgabe: Ein Prompt beeinflusst die Erzeugung. Ein Fingerprint beschreibt das Zielniveau, gegen das das Ergebnis später geprüft wird.
+This is precisely what distinguishes the fingerprint from a mere prompt specification: a prompt influences generation. A fingerprint describes the target level against which the result is later verified.
 
-## Fachliche Rolle des Fingerprints
+## Domain Role of the Fingerprint
 
-Der Fingerprint ist das Referenzobjekt für erwartbares Verhalten eines Modells in einem bestimmten Nutzungskontext. Er steht damit zwischen zwei Extremen:
-- Er ist mehr als ein einzelner Stilhinweis oder ein Few-Shot-Beispiel.
-- Er ist weniger als eine vollständige fachliche Garantie über jeden Inhalt.
+The fingerprint is the reference object for expected model behavior in a particular usage context. It stands between two extremes:
+- It is more than a single style hint or a few-shot example.
+- It is less than a complete domain-level guarantee over every piece of content.
 
-Fachlich dient der Fingerprint vor allem dazu:
-- Model-Shift-Effekte erkennbar zu machen
-- Stil- und Verhaltensdrift zu dämpfen
-- ein akzeptiertes Zielniveau für Antworten zu operationalisieren
-- Entscheidungen über Transformation, Refinement oder Retry zu fundieren
+From a domain perspective the fingerprint primarily serves to:
+- make model-shift effects recognizable
+- dampen style and behavior drift
+- operationalize an accepted target level for responses
+- substantiate decisions about transformation, refinement, or retry
 
-## Abgrenzung zu ähnlichen Konzepten
+## Distinction from Similar Concepts
 
 ### Fingerprint vs. Prompt
 
-Ein Prompt ist eine Eingabe an das Modell. Er sagt dem Modell, was erzeugt werden soll oder wie es sich verhalten soll.
+A prompt is an input to the model. It tells the model what to produce or how to behave.
 
-Ein Fingerprint ist dagegen kein Steuerbefehl an das Modell, sondern ein Referenzrahmen für die Bewertung des erzeugten Ergebnisses. Er kann aus denselben inhaltlichen Domänen stammen wie ein Prompt, erfüllt aber eine andere Funktion.
+A fingerprint, by contrast, is not a control command to the model but a reference frame for evaluating the produced result. It may originate from the same content domains as a prompt, but it fulfills a different function.
 
-Kurz:
-- Prompt = beeinflusst die Erzeugung
-- Fingerprint = bewertet die Erzeugung gegen ein Zielniveau
+In short:
+- Prompt = influences generation
+- Fingerprint = evaluates generation against a target level
 
-### Fingerprint vs. Few-Shot-Beispiele
+### Fingerprint vs. Few-Shot Examples
 
-Few-Shot-Beispiele demonstrieren dem Modell ein gewünschtes Muster direkt im Prompt-Kontext. Sie dienen primär der In-Context-Steuerung.
+Few-shot examples demonstrate a desired pattern to the model directly within the prompt context. They serve primarily for in-context steering.
 
-Ein Fingerprint ist dauerhafter und systemischer gedacht:
-- nicht bloß Demonstration eines Musters
-- sondern referenzierbare Erwartung an wiederkehrendes Verhalten
-- nicht nur zur Generierung, sondern zur Einordnung und Stabilisierung
+A fingerprint is conceived as more durable and systemic:
+- not merely a demonstration of a pattern
+- but a referenceable expectation for recurring behavior
+- not only for generation, but for evaluation and stabilization
 
 ### Fingerprint vs. Policy
 
-Eine Policy formuliert Regeln oder Grenzen, etwa „antworte knapp“ oder „verwende keine Halluzinationen“. Policies sind normative Vorgaben.
+A policy formulates rules or constraints, such as "answer concisely" or "avoid hallucinations". Policies are normative specifications.
 
-Ein Fingerprint ist demgegenüber stärker empirisch und referenzbasiert. Er repräsentiert ein bekanntes akzeptiertes Niveau, das aus Training, Auswahl oder Kuratierung hervorgegangen ist. Er beschreibt daher nicht nur Soll-Regeln, sondern ein tatsächlich akzeptiertes Vergleichsmuster.
+A fingerprint is, by contrast, more empirical and reference-based. It represents a known accepted level that has emerged from training, selection, or curation. It therefore describes not only target rules, but an actually accepted comparison pattern.
 
-## Warum der Fingerprint nötig ist
+## Why the Fingerprint Is Necessary
 
-Ohne Fingerprint bleibt die Bewertung einer Modellantwort diffus. Man kann zwar sagen, dass eine Antwort „gut klingt“ oder „nicht so wirkt wie früher“, aber diese Einschätzung bleibt schwer operationalisierbar.
+Without a fingerprint, the evaluation of a model response remains diffuse. One can say that a response "sounds good" or "doesn't feel like before", but this impression remains difficult to operationalize.
 
-Der Fingerprint macht daraus einen überprüfbaren Mechanismus:
-- Es gibt ein bekanntes Zielniveau.
-- Antworten werden dagegen eingeordnet.
-- Abweichungen werden nicht nur gespürt, sondern systematisch behandelt.
+The fingerprint turns this into a verifiable mechanism:
+- There is a known target level.
+- Responses are evaluated against it.
+- Deviations are not merely sensed, but systematically addressed.
 
-Damit ist der Fingerprint ein Kernbaustein für die Reduktion von Model-Shift-Erfahrungen.
+The fingerprint is thus a core component in reducing model-shift experiences.
 
-## Was der Fingerprint leisten kann – und was nicht
+## What the Fingerprint Can — and Cannot — Do
 
-### Was er leisten kann
+### What it can do
 
-- Referenzniveau für Stil und Antwortcharakter bereitstellen
-- Drift im Antwortverhalten sichtbar machen
-- Entscheidungen über Transformation, Refinement und Retry unterstützen
-- Konsistenz innerhalb definierter Nutzungskontexte erhöhen
+- Provide a reference level for style and response character
+- Make drift in response behavior visible
+- Support decisions on transformation, refinement, and retry
+- Increase consistency within defined usage contexts
 
-### Was er nicht leisten kann
+### What it cannot do
 
-- keine vollständige inhaltliche oder fachliche Validierung jedes Outputs
-- keine Determinisierung des Modells
-- kein Ersatz für Plugin-basierte Strukturvalidierung
-- keine Garantie, dass jedes Modell bei jedem Thema dasselbe Niveau erreicht
+- no complete content or domain validation of every output
+- no determinization of the model
+- no replacement for plugin-based structure validation
+- no guarantee that every model reaches the same level on every topic
 
-## Rolle des Trainers
+## Role of the Trainer
 
-Der Trainer dient dazu, Fingerprints nicht rein intuitiv, sondern reproduzierbar aufzubauen. Das Ziel ist ein belastbares Referenzobjekt, das später im Betrieb nutzbar ist.
+The trainer serves to build fingerprints reproducibly rather than intuitively. The goal is a reliable reference object that is usable in production.
 
-Fachlich bedeutet das:
-- Auswahl eines akzeptierten Zielniveaus
-- Ableitung oder Kuratierung der relevanten Referenzmerkmale
-- Ablage in einer Form, die von der Runtime referenziert werden kann
-- mögliche Versionierung nach Modellstand, Kontext oder Sprache
+From a domain perspective this means:
+- selecting an accepted target level
+- deriving or curating the relevant reference characteristics
+- storing them in a form referenceable by the runtime
+- potential versioning by model state, context, or language
 
-Der Trainer ist damit kein bloßes Komfortwerkzeug, sondern der vorbereitende Schritt zur Operationalisierung des Referenzniveaus.
+The trainer is therefore not merely a convenience tool, but the preparatory step for operationalizing the reference level.
 
-## Laufzeitnutzung
+## Runtime Usage
 
-Zur Laufzeit wird der Fingerprint nicht primär „an das Modell geschickt“, sondern als Bewertungsgrundlage verwendet. Er beeinflusst damit die Entscheidung, ob ein Ergebnis:
-- akzeptiert
-- transformiert
-- verfeinert
-- erneut erzeugt
-- oder eskaliert wird
+At runtime the fingerprint is not primarily "sent to the model", but used as the basis for evaluation. It influences the decision of whether a result is:
+- accepted
+- transformed
+- refined
+- regenerated
+- or escalated
 
-Der Fingerprint ist also ein Bestandteil der Kontrollschicht, nicht nur der Erzeugungsschicht.
+The fingerprint is therefore a component of the control layer, not just the generation layer.
 
-## Überblick Trainer → Fingerprint → Runtime
+## Overview: Trainer → Fingerprint → Runtime
 
 ```mermaid
 flowchart LR
-    A[Trainer] --> B[Fingerprint erzeugen / kuratieren]
-    B --> C[Referenzniveau speichern]
-    C --> D[Runtime lädt Fingerprint]
-    D --> E[Antwort gegen Referenzniveau einordnen]
-    E --> F{Ausreichend nah?}
-    F -- Ja --> G[Akzeptieren]
-    F -- Nein --> H[Transformation / Refinement / Retry]
+    A[Trainer] --> B[Create / Curate Fingerprint]
+    B --> C[Store Reference Level]
+    C --> D[Runtime Loads Fingerprint]
+    D --> E[Evaluate Response Against Reference Level]
+    E --> F{Sufficiently Close?}
+    F -- Yes --> G[Accept]
+    F -- No --> H[Transformation / Refinement / Retry]
 ```
 
-## Fachliche Kernaussage
+## Core Domain Statement
 
-Der Fingerprint ist in MDAL nicht bloß ein hübscher Name für Stilvorgaben. Er ist das betriebliche Referenzniveau für erwartbares Verhalten. Genau dadurch wird aus einem unscharfen Eindruck von Modell-Drift ein kontrollierbarer Mechanismus zur Stabilisierung des Nutzererlebnisses.
+The fingerprint in MDAL is not merely a fancy name for style specifications. It is the operational reference level for expected behavior. This is precisely what turns a vague sense of model drift into a controllable mechanism for stabilizing the user experience.

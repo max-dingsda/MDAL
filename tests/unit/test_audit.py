@@ -1,4 +1,4 @@
-"""Unit-Tests für mdal.audit — AuditWriter (F4, NF5)."""
+"""Unit tests for mdal.audit — AuditWriter (F4, NF5)."""
 
 import json
 from pathlib import Path
@@ -25,7 +25,7 @@ def read_entries(tmp_path: Path) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Schreiben
+# Writing
 # ---------------------------------------------------------------------------
 
 class TestWrite:
@@ -79,11 +79,11 @@ class TestWrite:
             writer.write("test.event", {"i": i})
         log_path = tmp_path / "audit" / "test.log"
         for line in log_path.read_text(encoding="utf-8").splitlines():
-            json.loads(line)   # wirft wenn ungültig
+            json.loads(line)   # raises if invalid
 
 
 # ---------------------------------------------------------------------------
-# Write-only: kein Lesen, Bearbeiten, Löschen
+# Write-only: no reading, editing, or deleting
 # ---------------------------------------------------------------------------
 
 class TestWriteOnly:
@@ -98,7 +98,7 @@ class TestWriteOnly:
 
 
 # ---------------------------------------------------------------------------
-# Nicht implementierte Targets
+# Unimplemented targets
 # ---------------------------------------------------------------------------
 
 class TestUnimplementedTargets:
@@ -113,14 +113,14 @@ class TestUnimplementedTargets:
 
 
 # ---------------------------------------------------------------------------
-# Fehlerbehandlung
+# Error handling
 # ---------------------------------------------------------------------------
 
 class TestErrorHandling:
     def test_write_to_unwritable_path_raises_audit_write_error(self, tmp_path):
-        # Simuliere nicht schreibbaren Pfad durch einen Ordner statt einer Datei
+        # Simulate an unwritable path by using a directory instead of a file
         log_path = tmp_path / "audit.log"
-        log_path.mkdir()   # Ordner statt Datei — Write schlägt fehl
+        log_path.mkdir()   # directory instead of file — write will fail
         config = AuditConfig(target="file", path=str(log_path))
         writer = AuditWriter(config)
         with pytest.raises(AuditWriteError):

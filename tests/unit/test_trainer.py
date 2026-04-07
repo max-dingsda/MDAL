@@ -1,4 +1,4 @@
-"""Unit-Tests für mdal.trainer.trainer — Trainer (F17)."""
+"""Unit tests for mdal.trainer.trainer — Trainer (F17)."""
 
 import json
 from pathlib import Path
@@ -53,7 +53,7 @@ def make_trainer(tmp_path: Path, llm_responses: list[str]) -> tuple[Trainer, Mag
 
 
 # ---------------------------------------------------------------------------
-# Haupt-Trainer-Lauf
+# Main trainer run
 # ---------------------------------------------------------------------------
 
 class TestTrainerRun:
@@ -76,7 +76,7 @@ class TestTrainerRun:
 
     def test_raises_on_empty_conversations(self, tmp_path):
         trainer, _, _ = make_trainer(tmp_path, [])
-        with pytest.raises(TrainerError, match="Mindestens eine Konversation"):
+        with pytest.raises(TrainerError, match="At least one conversation"):
             trainer.run([], language="de")
 
     def test_raises_on_conversations_with_no_assistant_turns(self, tmp_path):
@@ -85,7 +85,7 @@ class TestTrainerRun:
             {"role": "user", "content": "Hi"},
             {"role": "user", "content": "Noch eine Frage"},
         ], language="de")
-        with pytest.raises(TrainerError, match="Assistent-Antworten"):
+        with pytest.raises(TrainerError, match="No assistant responses"):
             trainer.run([conv], language="de")
 
     def test_calls_llm_for_style_extraction(self, tmp_path):
@@ -102,12 +102,12 @@ class TestTrainerRun:
             [STYLE_RULES_RESPONSE, SAMPLE_SELECTION_RESPONSE],
         )
         trainer.run(SAMPLE_CONVERSATIONS, language="de")
-        # 2 Assistent-Antworten in SAMPLE_CONVERSATIONS
+        # 2 assistant responses in SAMPLE_CONVERSATIONS
         assert embed.embed.call_count == 2
 
 
 # ---------------------------------------------------------------------------
-# Layer 1 — Stilregel-Extraktion
+# Layer 1 — Style rule extraction
 # ---------------------------------------------------------------------------
 
 class TestLayer1Extraction:
@@ -142,18 +142,18 @@ class TestLayer1Extraction:
         assert any(r.name == "keine-emoticons" for r in fp.layer1.custom_rules)
 
     def test_malformed_llm_response_raises_trainer_error(self, tmp_path):
-        # Layer-1-Extraktion versucht es drei Mal (JSON-Mode, Standard, Korrektur-Prompt).
-        # Erst wenn alle drei Versuche scheitern wird TrainerError geworfen.
+        # Layer-1 extraction tries three times (JSON mode, standard, correction prompt).
+        # TrainerError is only raised after all three attempts fail.
         trainer, _, _ = make_trainer(
             tmp_path,
             ["Das ist kein JSON", "Immer noch kein JSON", "Auch der dritte Versuch nicht"],
         )
-        with pytest.raises(TrainerError, match="Layer-1-Extraktion"):
+        with pytest.raises(TrainerError, match="Layer-1 extraction"):
             trainer.run(SAMPLE_CONVERSATIONS, language="de")
 
 
 # ---------------------------------------------------------------------------
-# Layer 2 — Embedding-Profil
+# Layer 2 — Embedding profile
 # ---------------------------------------------------------------------------
 
 class TestLayer2EmbeddingProfile:
@@ -190,7 +190,7 @@ class TestLayer2EmbeddingProfile:
 
 
 # ---------------------------------------------------------------------------
-# Layer 3 — Golden Samples
+# Layer 3 — Golden samples
 # ---------------------------------------------------------------------------
 
 class TestLayer3GoldenSamples:
@@ -207,9 +207,9 @@ class TestLayer3GoldenSamples:
     def test_fallback_used_when_selection_response_malformed(self, tmp_path):
         trainer, _, _ = make_trainer(
             tmp_path,
-            [STYLE_RULES_RESPONSE, "kein JSON hier"],
+            [STYLE_RULES_RESPONSE, "no JSON here"],
         )
-        # Sollte nicht werfen — Fallback zu ersten N Samples
+        # Should not raise — fallback to first N samples
         trainer.run(SAMPLE_CONVERSATIONS, language="de")
         store = FingerprintStore(tmp_path / "fingerprints")
         fp = store.load_current("de")
@@ -217,7 +217,7 @@ class TestLayer3GoldenSamples:
 
 
 # ---------------------------------------------------------------------------
-# _extract_json Hilfsfunktion
+# _extract_json helper function
 # ---------------------------------------------------------------------------
 
 class TestExtractJson:
@@ -233,17 +233,18 @@ class TestExtractJson:
         assert _extract_json(text) == {"key": "value"}
 
     def test_json_with_preamble_text(self):
-        text = 'Hier ist das Ergebnis: {"key": "value"} Das war es.'
+        text = 'Here is the result: {"key": "value"} That was it.'
         assert _extract_json(text) == {"key": "value"}
 
     def test_invalid_json_raises(self):
         with pytest.raises(Exception):
-            _extract_json("kein json")
+            _extract_json("no json")
 
 
 # ---------------------------------------------------------------------------
 # load_conversations_from_file
 # ---------------------------------------------------------------------------
+
 
 class TestLoadConversations:
     def test_loads_single_conversation(self, tmp_path):

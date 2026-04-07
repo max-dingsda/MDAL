@@ -1,4 +1,4 @@
-"""Unit-Tests für mdal.fingerprint.store — FingerprintStore (F7)."""
+"""Unit tests for mdal.fingerprint.store — FingerprintStore (F7)."""
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,7 +15,7 @@ from mdal.fingerprint.store import FingerprintNotFoundError, FingerprintStore
 
 
 # ---------------------------------------------------------------------------
-# Fixture: minimaler gültiger Fingerprint
+# Fixture: minimal valid fingerprint
 # ---------------------------------------------------------------------------
 
 def make_fingerprint(language: str = "de", version: int = 0) -> Fingerprint:
@@ -38,7 +38,7 @@ def store(tmp_path: Path) -> FingerprintStore:
 
 
 # ---------------------------------------------------------------------------
-# Speichern
+# Saving
 # ---------------------------------------------------------------------------
 
 class TestSave:
@@ -89,7 +89,7 @@ class TestSave:
 
 
 # ---------------------------------------------------------------------------
-# Laden
+# Loading
 # ---------------------------------------------------------------------------
 
 class TestLoad:

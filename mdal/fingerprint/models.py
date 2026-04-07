@@ -1,12 +1,12 @@
 """
-Fingerprint-Datenmodell — drei Schichten von schnell/günstig bis langsam/präzise.
+Fingerprint data model — three layers from fast/cheap to slow/precise.
 
-Schicht 1 — Stilregeln:      harte, messbare Eigenschaften (deterministisch, schnell)
-Schicht 2 — Embedding-Profil: mathematische Repräsentation des Zielstils
-Schicht 3 — Golden Samples:  Referenz-Interaktionen für LLM-as-Judge
+Layer 1 — Style rules:      hard, measurable properties (deterministic, fast)
+Layer 2 — Embedding profile: mathematical representation of the target style
+Layer 3 — Golden samples:   reference interactions for LLM-as-Judge
 
-Der Fingerprint wird pro Sprache gepflegt (F8) und ist versioniert (F7).
-→ Rust-Kern (Zielarchitektur): Schicht 1 + 2 wandern in den Rust-Kern.
+The fingerprint is maintained per language (F8) and is versioned (F7).
+→ Rust core (target architecture): layers 1 + 2 migrate to the Rust core.
 """
 
 from __future__ import annotations
@@ -20,63 +20,63 @@ from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
-# Schicht 1 — Stilregeln
+# Layer 1 — Style rules
 # ---------------------------------------------------------------------------
 
 class StyleRule(BaseModel):
-    """Eine einzelne, beschreibende Stilregel — ergänzt die Messgrößen."""
+    """A single descriptive style rule — supplements the measurable properties."""
     name:        str
     description: str
 
 
 class StyleRules(BaseModel):
     """
-    Schicht 1 des Fingerprints.
+    Layer 1 of the fingerprint.
 
-    Enthält messbare Eigenschaften (Formalität, Satzlänge, Vokabular)
-    sowie freitextliche Regeln die der Trainer aus dem LLM extrahiert.
-    Diese Schicht ist der Vorfilter — schnell und deterministisch.
+    Contains measurable properties (formality, sentence length, vocabulary)
+    as well as free-text rules extracted from the LLM by the trainer.
+    This layer is the pre-filter — fast and deterministic.
 
-    → Rust-Kern: Regelabgleich läuft als kompilierter Code.
+    → Rust core: rule matching runs as compiled code.
     """
-    # 1 = sehr informal, 5 = sehr formal
+    # 1 = very informal, 5 = very formal
     formality_level:         int            = Field(default=3, ge=1, le=5)
-    avg_sentence_length_max: int | None     = None    # Wörter pro Satz
+    avg_sentence_length_max: int | None     = None    # words per sentence
     preferred_vocabulary:    list[str]      = Field(default_factory=list)
     avoided_vocabulary:      list[str]      = Field(default_factory=list)
     custom_rules:            list[StyleRule] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
-# Schicht 2 — Embedding-Profil
+# Layer 2 — Embedding profile
 # ---------------------------------------------------------------------------
 
 class EmbeddingProfile(BaseModel):
     """
-    Schicht 2 des Fingerprints.
+    Layer 2 of the fingerprint.
 
-    Der Centroid-Vektor ist der Durchschnitt aller Referenz-Embeddings
-    aus dem Trainer. Er repräsentiert den "Mittelpunkt" des Zielstils
-    im Embedding-Raum.
+    The centroid vector is the average of all reference embeddings
+    from the trainer. It represents the "center of mass" of the target style
+    in the embedding space.
 
-    → Rust-Kern: Cosine-Similarity-Berechnung auf float-Vektoren.
+    → Rust core: cosine similarity calculation on float vectors.
     """
     centroid:     list[float]
-    model_name:   str            # Embedding-Modell das den Vektor erzeugt hat
-    sample_count: int            # Anzahl der Samples die in den Centroid geflossen sind
-    dimensions:   int            # Vektordimension — für spätere Konsistenzprüfung
+    model_name:   str            # embedding model that produced the vector
+    sample_count: int            # number of samples that contributed to the centroid
+    dimensions:   int            # vector dimension — for later consistency checks
 
 
 # ---------------------------------------------------------------------------
-# Schicht 3 — Golden Samples
+# Layer 3 — Golden samples
 # ---------------------------------------------------------------------------
 
 class GoldenSample(BaseModel):
     """
-    Ein einzelnes Referenz-Interaktionspaar für Schicht 3 (LLM-as-Judge).
+    A single reference interaction pair for Layer 3 (LLM-as-Judge).
 
-    Der Judge bekommt diese Samples als Kontext und entscheidet ob
-    der zu prüfende Output stilistisch dazu passt.
+    The judge receives these samples as context and decides whether
+    the output under review matches them stylistically.
     """
     prompt:   str
     response: str
@@ -84,25 +84,25 @@ class GoldenSample(BaseModel):
 
 class GoldenSamples(BaseModel):
     """
-    Schicht 3 des Fingerprints.
+    Layer 3 of the fingerprint.
 
-    Maximale Präzision, höchste Kosten — nur für Grenzfälle (TIEBREAK).
-    Die Samples werden vom Trainer aus echten Chat-Verläufen selektiert.
+    Maximum precision, highest cost — used only for edge cases (TIEBREAK).
+    Samples are selected by the trainer from real chat logs.
     """
     samples: list[GoldenSample] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
-# Fingerprint (vollständig)
+# Fingerprint (complete)
 # ---------------------------------------------------------------------------
 
 class Fingerprint(BaseModel):
     """
-    Vollständiger Charakter-Fingerabdruck.
+    Complete character fingerprint.
 
-    Versioniert (F7), sprachsensitiv (F8), aus echten Daten destilliert (F17).
-    Rohdaten (Chat-Verläufe) werden nach Trainer-Lauf verworfen (NF3) —
-    persistiert wird ausschließlich dieser destillierte Fingerabdruck.
+    Versioned (F7), language-sensitive (F8), distilled from real data (F17).
+    Raw data (chat logs) are discarded after the trainer run (NF3) —
+    only this distilled fingerprint is persisted.
     """
     id:         str      = Field(default_factory=lambda: str(uuid4()))
     version:    int
@@ -127,33 +127,33 @@ class Fingerprint(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Konversationsformat für den Trainer
+# Conversation format for the trainer
 # ---------------------------------------------------------------------------
 
 class ConversationTurn(BaseModel):
-    """Eine Gesprächsrunde — ein Zug in einem Multi-Turn-Gespräch."""
+    """A single turn in a multi-turn conversation."""
     role:    str    # "user" | "assistant" | "system"
     content: str
 
 
 class Conversation(BaseModel):
     """
-    Ein vollständiger Chat-Verlauf als Trainer-Input.
+    A complete chat log as trainer input.
 
-    Format ist bewusst OpenAI-kompatibel — erleichtert den Import
-    aus bestehenden Chat-Export-Formaten.
+    The format is deliberately OpenAI-compatible — simplifies importing
+    from existing chat export formats.
     """
     turns:    list[ConversationTurn]
     language: str = "de"
 
     def assistant_responses(self) -> list[str]:
-        """Gibt alle Assistent-Antworten zurück — Basis für Layer 2."""
+        """Returns all assistant responses — basis for Layer 2."""
         return [t.content for t in self.turns if t.role == "assistant"]
 
     def as_turn_pairs(self) -> list[tuple[str, str]]:
         """
-        Gibt (User-Prompt, Assistent-Antwort)-Paare zurück.
-        Basis für Golden Sample Selektion (Layer 3).
+        Returns (user prompt, assistant response) pairs.
+        Basis for golden sample selection (Layer 3).
         """
         pairs: list[tuple[str, str]] = []
         for i, turn in enumerate(self.turns):
@@ -163,7 +163,7 @@ class Conversation(BaseModel):
 
     @classmethod
     def from_openai_format(cls, data: list[dict[str, str]], language: str = "de") -> Conversation:
-        """Lädt aus OpenAI-kompatiblem Format: [{"role": ..., "content": ...}]."""
+        """Loads from OpenAI-compatible format: [{"role": ..., "content": ...}]."""
         return cls(
             turns=[ConversationTurn(**t) for t in data],
             language=language,

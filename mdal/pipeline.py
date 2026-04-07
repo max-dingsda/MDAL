@@ -1,21 +1,21 @@
 """
-Pipeline-Orchestrator — verbindet alle MDAL-Komponenten (F1–F18).
+Pipeline orchestrator — connects all MDAL components (F1–F18).
 
-Ablauf eines Request-Durchlaufs:
-  1. STATUS: Anfrage wird verarbeitet
-  2. Fingerprint laden (aktuelle Version für die Sprache)
-  3. SessionContext anlegen
-  4. RetryController.run() mit:
-       - initial_call:  LLM-Aufruf mit den Original-Messages
-       - refine_call:   LLM-Aufruf mit Refinement-Anhang
-       - verify:        VerificationEngine (STATUS: Prüfung)
-       - transform:     RuleBasedToneTransformer (STATUS: Anpassung)
-  5. STATUS: Antwort ist bereit
-  6. Output zurückgeben
+Flow of a single request:
+  1. STATUS: request is being processed
+  2. Load fingerprint (current version for the language)
+  3. Create SessionContext
+  4. RetryController.run() with:
+       - initial_call:  LLM call with the original messages
+       - refine_call:   LLM call with refinement appendix
+       - verify:        VerificationEngine (STATUS: checking)
+       - transform:     LLMToneTransformer (STATUS: adjusting)
+  5. STATUS: response is ready
+  6. Return output
 
-Fehlerbehandlung:
-  - RetryLimitError: wird nach oben weitergegeben (kein Output an Client)
-  - FingerprintStore-Fehler: werden nicht gefangen (F11 — kein stiller Fallback)
+Error handling:
+  - RetryLimitError: propagated upward (no output to client)
+  - FingerprintStore errors: not caught (F11 — no silent fallback)
 """
 
 from __future__ import annotations
@@ -41,20 +41,20 @@ from mdal.verification.detector import detect_format
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Refinement-Prompt
+# Refinement prompt
 # ---------------------------------------------------------------------------
 
 _REFINEMENT_USER_MESSAGE = """\
-Deine letzte Antwort war fehlerhaft und wurde vom System zurückgewiesen.
+Your last response was faulty and was rejected by the system.
 
-FESTGESTELLTE FEHLER:
+DETECTED ERRORS:
 {error_summary}
 
-DEINE ABGELEHNTE ANTWORT:
+YOUR REJECTED RESPONSE:
 {prev_output}
 
-AUFGABE:
-Bitte korrigiere die genannten Fehler und generiere die Antwort neu. Behalte die inhaltliche Struktur, Fakten, Reihenfolge und Vollständigkeit der Antwort unter allen Umständen UNVERÄNDERT bei!
+TASK:
+Please correct the errors listed above and regenerate the response. Under all circumstances keep the content structure, facts, order, and completeness of the response UNCHANGED.
 """
 
 
@@ -64,8 +64,8 @@ def _build_refinement_messages(
     error_summary:     str,
 ) -> list[dict]:
     """
-    Hängt einen expliziten Korrektur-Hinweis inkl. des fehlerhaften Outputs an die
-    Original-Messages an.
+    Appends an explicit correction note including the faulty output to the
+    original messages.
     """
     return [
         *original_messages,
@@ -79,20 +79,20 @@ def _build_refinement_messages(
     ]
 
 # ---------------------------------------------------------------------------
-# Domänen-Klassifizierung (Säule B)
+# Domain classification (Pillar B)
 # ---------------------------------------------------------------------------
 
 _DOMAIN_PROMPT = """\
-Analysiere die folgende Benutzeranfrage und ordne sie exakt einer der folgenden Domänen zu:
-- TECHNICAL: Technische Erklärungen, IT-Architektur, Programmierung.
-- BUSINESS: Formelle geschäftliche E-Mails, Vorstandspräsentationen, Mahnungen.
-- CREATIVE: Storytelling, Prosa, bildhafte Beschreibungen, lockere Dialoge.
-- SHORT_COPY: Sehr kurze Anfragen, Slogans, Social Media (unter 3 Sätze erwartet).
-- DEFAULT: Alles andere, Smalltalk, allgemeine Fragen.
+Analyze the following user request and assign it to exactly one of these domains:
+- TECHNICAL: Technical explanations, IT architecture, programming.
+- BUSINESS: Formal business emails, board presentations, payment reminders.
+- CREATIVE: Storytelling, prose, vivid descriptions, casual dialogues.
+- SHORT_COPY: Very short requests, slogans, social media (fewer than 3 sentences expected).
+- DEFAULT: Everything else, small talk, general questions.
 
-Antworte AUSSCHLIESSLICH mit exakt einem dieser 5 Begriffe (TECHNICAL, BUSINESS, CREATIVE, SHORT_COPY, DEFAULT). Keine Erklärungen!
+Respond EXCLUSIVELY with exactly one of these 5 terms (TECHNICAL, BUSINESS, CREATIVE, SHORT_COPY, DEFAULT). No explanations!
 
-Benutzeranfrage:
+User request:
 {prompt}
 """
 
@@ -111,16 +111,16 @@ def _classify_domain(messages: list[dict], llm: LLMAdapterProtocol) -> str:
         return "DEFAULT"
 
 # ---------------------------------------------------------------------------
-# Pipeline-Orchestrator
+# Pipeline orchestrator
 # ---------------------------------------------------------------------------
 
 class PipelineOrchestrator:
     """
-    Verbindet LLM, VerificationEngine, Transformer und RetryController.
+    Connects LLM, VerificationEngine, Transformer, and RetryController.
 
-    Wird einmal pro Server-Instanz angelegt (alle Abhängigkeiten per Konstruktor).
-    Ist zustandslos in Bezug auf individuelle Requests — SessionContext wird
-    pro Request neu angelegt.
+    Created once per server instance (all dependencies via constructor).
+    Stateless with respect to individual requests — SessionContext is
+    created fresh per request.
     """
 
     def __init__(
@@ -145,26 +145,26 @@ class PipelineOrchestrator:
         language: str,
     ) -> str:
         """
-        Verarbeitet einen vollständigen LLM-Request durch die MDAL-Pipeline.
+        Processes a complete LLM request through the MDAL pipeline.
 
         Parameters
         ----------
-        messages: Chat-Messages im OpenAI-Format (role/content).
-        language: Sprachkürzel (z. B. "de", "en") zum Fingerprint-Lookup.
+        messages: Chat messages in OpenAI format (role/content).
+        language: Language code (e.g. "de", "en") for fingerprint lookup.
 
         Returns
         -------
-        str: Finaler, konformer Output — direkt oder nach Transformation.
+        str: Final, conforming output — direct or after transformation.
 
         Raises
         ------
-        RetryLimitError: Wenn kein konformer Output produziert werden konnte.
-        KeyError / FileNotFoundError: Wenn kein Fingerprint für die Sprache existiert.
+        RetryLimitError: When no conforming output could be produced.
+        KeyError / FileNotFoundError: When no fingerprint exists for the language.
         """
         self._status.report(StatusMessage.PROCESSING)
 
         domain = _classify_domain(messages, self._llm)
-        logger.info("Säule B: Erkannte Text-Domäne für Request: %s", domain)
+        logger.info("Pillar B: detected text domain for request: %s", domain)
 
         fingerprint = self._store.load_current(language)
         version     = self._store.current_version(language) or 0
@@ -182,16 +182,16 @@ class PipelineOrchestrator:
 
         def verify(output: str, ctx: SessionContext) -> VerificationResult:
             self._status.report(StatusMessage.CHECKING)
-            
-            # F2: Strukturierte Outputs erkennen
+
+            # F2: detect structured outputs
             is_structured = detect_format(output).is_structured()
 
-            # F8: Hard Language Lock (Sprach-Drift hart blockieren)
+            # F8: Hard Language Lock (block language drift)
             if not is_structured and detect is not None and len(output.split()) > 10:
                 try:
                     detected_lang = detect(output)
                     if not language.startswith(detected_lang):
-                        error_msg = f"Sprach-Drift (F8): Erwartet '{language}', aber '{detected_lang}' generiert."
+                        error_msg = f"Language drift (F8): expected '{language}', but '{detected_lang}' generated."
                         self._retry._notifier.notify_escalation(
                             session_id=ctx.session_id,
                             retry_count=self._retry._max,
@@ -199,8 +199,8 @@ class PipelineOrchestrator:
                         )
                         raise RetryLimitError(ctx.session_id, self._retry._max)
                 except LangDetectException:
-                    pass  # Zu kurz oder unklar für Spracherkennung
-            
+                    pass  # Too short or ambiguous for language detection
+
             return self._verification.verify(output, fingerprint, ctx)
 
         def do_transform(output: str) -> str:
@@ -216,25 +216,25 @@ class PipelineOrchestrator:
         )
 
         self._status.report(StatusMessage.READY)
-        
-        # F21: Post-Processing Filter anwenden
+
+        # F21: Apply post-processing filter
         return _post_process(final_output)
 
 
 # ---------------------------------------------------------------------------
-# Post-Processing
+# Post-processing
 # ---------------------------------------------------------------------------
 
 def _post_process(text: str) -> str:
     """
-    F21: Entfernt generierte Meta-Kommentare und LLM-Einleitungen vor der Auslieferung.
+    F21: Removes generated meta-comments and LLM preambles before delivery.
     """
-    # Entfernt typische LLM-Prologe wie "Hier ist die angepasste Version:"
+    # Remove typical LLM prologues such as "Here is the adapted version:"
     text = re.sub(
         r"^(?:Hier ist|Dies ist|Anbei)(?: eine| die)? (?:angepasste|überarbeitete|korrigierte) (?:Version|Antwort|Fassung).*?:\s*\n*",
         "", text, flags=re.IGNORECASE
     )
-    # Entfernt Klammer-Kommentare wie (Hier ist der Text) am Anfang oder Ende
+    # Remove bracket comments like (Here is the text) at the start or end
     text = re.sub(
         r"^\s*[\(\[].*(?:angepasst|transformiert|Version|Hier ist|überarbeitet|korrigiert).*?[\)\]]\s*\n?",
         "", text, flags=re.IGNORECASE | re.MULTILINE

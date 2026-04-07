@@ -1,4 +1,4 @@
-"""Unit-Tests für mdal.session — SessionContext (F14, NF3)."""
+"""Unit tests for mdal.session — SessionContext (F14, NF3)."""
 
 import pytest
 
@@ -61,7 +61,7 @@ class TestSessionContext:
         assert s.last_check() is None
 
     def test_check_history_returns_copy(self):
-        """Externe Mutation der History darf den internen Zustand nicht verändern."""
+        """External mutation of the history must not affect the internal state."""
         s = SessionContext(language="de", fingerprint_version=1)
         s.record_check(make_result())
         history = s.check_history()
@@ -69,7 +69,7 @@ class TestSessionContext:
         assert len(s.check_history()) == 1
 
     def test_no_persistence_between_instances(self):
-        """Zwei SessionContext-Instanzen teilen keinen Zustand."""
+        """Two SessionContext instances share no state."""
         s1 = SessionContext(language="de", fingerprint_version=1)
         s2 = SessionContext(language="de", fingerprint_version=1)
         s1.record_check(make_result())

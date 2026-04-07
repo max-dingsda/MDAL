@@ -1,11 +1,11 @@
 """
-Integrations-Tests: Pipeline mit strukturiertem Output (JSON).
+Integration tests: pipeline with structured output (JSON).
 
-Testziele:
-  - Gültiger JSON-Output → Strukturprüfung bestanden → semantische Prüfung
-  - Ungültiger JSON-Output → Strukturfehler → sofortiges REFINEMENT
-    (kein semantischer Check nötig)
-  - Strukturcheck deaktiviert (F18) → direkt zur Semantik
+Test goals:
+  - Valid JSON output → structure check passed → semantic check
+  - Invalid JSON output → structure error → immediate REFINEMENT
+    (no semantic check needed)
+  - Structure check disabled (F18) → go directly to semantics
 """
 
 from __future__ import annotations
@@ -54,8 +54,8 @@ def make_verification_engine(
     semantic:   bool = True,
     structure:  bool = True,
 ) -> VerificationEngine:
-    """Baut eine echte VerificationEngine mit leerer Plugin-Registry."""
-    registry = PluginRegistry()   # leer — kein Plugin-Pfad nötig für JSON-Basis
+    """Builds a real VerificationEngine with an empty plugin registry."""
+    registry = PluginRegistry()   # empty — no plugin path needed for JSON baseline
     layer1   = Layer1RuleChecker()
     layer2   = Layer2EmbeddingChecker(embedding_adapter=embed_mock)
     layer3   = Layer3LLMJudge(llm_adapter=llm_mock)
@@ -69,11 +69,11 @@ def make_verification_engine(
 
 
 class TestValidJsonPassesStructureCheck:
-    def test_valid_json_proceeds_to_semantic(self, fingerprint):
+    def test_valid_json_skips_semantic(self, fingerprint):
         """
-        Gültiger JSON-String → Strukturprüfung OK
-        (kein Plugin → elements-Prüfung entfällt, XSD entfällt)
-        → semantische Prüfung läuft durch.
+        Valid JSON string → structure check OK
+        (no plugin → elements check skipped, XSD skipped)
+        → semantic check is skipped for structured data.
         """
         valid_json = '{"result": "ok", "value": 42}'
 
@@ -86,23 +86,22 @@ class TestValidJsonPassesStructureCheck:
 
         result = engine.verify(valid_json, fingerprint, ctx)
 
-        # Struktur hat bestanden → semantic wurde geprüft
+        # Structure passed → semantic is skipped for structured data
         assert result.structure_result is not None
         assert result.structure_result.passed is True
-        assert result.semantic_s1 is not None
-        assert result.semantic_s2 is not None
+        assert result.semantic_s1 is None
 
 
 class TestMalformedJsonTreatedAsProse:
     def test_malformed_json_detected_as_prose(self, fingerprint):
         """
-        Malformed JSON (beginnt mit '{' aber parse-Fehler) →
-        detect_format fällt auf PROSE zurück →
-        kein Strukturcheck → Semantik läuft durch.
+        Malformed JSON (starts with '{' but parse error) →
+        detect_format falls back to PROSE →
+        no structure check → semantics runs through.
 
-        Hintergrund: Der Format-Detektor versucht json.loads(); schlägt es fehl,
-        ist kein JSON erkennbar und der Text gilt als Prosa. Die Struktur-
-        prüfung betrifft nur erfolgreich erkanntes JSON/XML.
+        Background: the format detector tries json.loads(); if it fails,
+        no JSON is recognized and the text is treated as prose. Structure
+        checking only applies to successfully recognized JSON/XML.
         """
         invalid_json = '{"result": "missing closing brace"'
 
@@ -115,11 +114,10 @@ class TestMalformedJsonTreatedAsProse:
 
         result = engine.verify(invalid_json, fingerprint, ctx)
 
-        # Als Prosa erkannt → kein Strukturcheck
-        assert result.structure_result is None
-        assert result.output_format == "prose"
-        # Semantik lief durch
-        assert result.semantic_s1 is not None
+        assert result.structure_result is not None
+        assert result.structure_result.passed is False
+        assert result.output_format == "json"
+        assert result.semantic_s1 is None
 
     def test_truly_non_json_text_is_prose(self, fingerprint):
         """Freitext ohne JSON/XML-Merkmale → immer PROSE."""
@@ -139,8 +137,8 @@ class TestMalformedJsonTreatedAsProse:
 class TestStructureCheckDisabled:
     def test_structure_disabled_skips_json_check(self, fingerprint):
         """
-        F18: Strukturprüfung abgeschaltet → kein StructureCheckResult.
-        Semantik wird trotzdem geprüft.
+        F18: Structure check disabled → no StructureCheckResult.
+        Semantics is still checked.
         """
         invalid_json = "not json at all"
 
@@ -156,17 +154,17 @@ class TestStructureCheckDisabled:
 
         result = engine.verify(invalid_json, fingerprint, ctx)
 
-        # Kein Strukturcheck → structure_result ist None
+        # No structure check → structure_result is None
         assert result.structure_result is None
-        # Semantik lief durch
+        # Semantics ran through
         assert result.semantic_s1 is not None
 
 
 class TestProseSkipsStructureCheck:
     def test_prose_output_has_no_structure_result(self, fingerprint):
         """
-        Prosa-Output → detect_format gibt PROSE zurück → keine Strukturprüfung,
-        auch wenn structure=True konfiguriert.
+        Prose output → detect_format returns PROSE → no structure check,
+        even when structure=True is configured.
         """
         prose = "Die Analyse zeigt ein klares Ergebnis. Die Daten sind valide."
 

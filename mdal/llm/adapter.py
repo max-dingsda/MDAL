@@ -1,14 +1,14 @@
 """
-OpenAI-kompatibler LLM Adapter (NF4 — Modell-Agnostizität).
+OpenAI-compatible LLM adapter (NF4 — model agnosticity).
 
-Eine einzige Adapter-Klasse für alle OpenAI-kompatiblen Endpunkte:
+A single adapter class for all OpenAI-compatible endpoints:
 Ollama, OpenAI, Anthropic (via compatible proxy), Azure OpenAI, etc.
 
-Das System wird mit zwei Instanzen betrieben:
-  - llm_adapter:       für Chat-Completions (Produktiv-LLM)
-  - embedding_adapter: für Embedding-Berechnungen (Embedding-Modell)
+The system runs with two instances:
+  - llm_adapter:       for chat completions (production LLM)
+  - embedding_adapter: for embedding computations (embedding model)
 
-Beide können auf denselben Endpunkt zeigen (z.B. Ollama) oder auf verschiedene.
+Both can point to the same endpoint (e.g. Ollama) or to different ones.
 """
 
 from __future__ import annotations
@@ -20,25 +20,25 @@ from mdal.interfaces.llm import LLMAdapterProtocol
 
 
 class AdapterError(Exception):
-    """Basisklasse für Adapter-Fehler — wird von der Retry-Logik ausgewertet."""
+    """Base class for adapter errors — evaluated by the retry logic."""
 
 
 class LLMUnavailableError(AdapterError):
-    """LLM-Endpunkt nicht erreichbar — löst ggf. Fallback-Mechanismus aus (F9)."""
+    """LLM endpoint not reachable — may trigger fallback mechanism (F9)."""
 
 
 class LLMResponseError(AdapterError):
-    """LLM hat geantwortet aber mit einem unerwarteten Format oder Fehlercode."""
+    """LLM responded but with an unexpected format or error code."""
 
 
 class OpenAICompatibleAdapter:
     """
-    Implementiert LLMAdapterProtocol gegen jeden OpenAI-kompatiblen Endpunkt.
+    Implements LLMAdapterProtocol against any OpenAI-compatible endpoint.
 
-    Ollama-spezifische Hinweise:
-    - Chat-Completions: POST /v1/chat/completions  (OpenAI-kompatibel ab Ollama 0.1.24)
-    - Embeddings:       POST /v1/embeddings        (OpenAI-kompatibel)
-    - Models:           GET  /v1/models            (für health_check)
+    Ollama-specific notes:
+    - Chat completions: POST /v1/chat/completions  (OpenAI-compatible since Ollama 0.1.24)
+    - Embeddings:       POST /v1/embeddings        (OpenAI-compatible)
+    - Models:           GET  /v1/models            (for health_check)
     """
 
     def __init__(
@@ -61,11 +61,11 @@ class OpenAICompatibleAdapter:
 
     def complete(self, messages: list[dict], **kwargs) -> str:
         """
-        Sendet eine Chat-Completion-Anfrage.
+        Sends a chat completion request.
 
-        - stream=False erzwungen: MDAL prüft erst vollständige Outputs (F6).
-        - Streaming vom LLM wird im API-Proxy gepuffert — dieser Adapter
-          sieht immer vollständige Antworten.
+        - stream=False enforced: MDAL only processes complete outputs (F6).
+        - Streaming from the LLM is buffered in the API proxy — this adapter
+          always receives complete responses.
         """
         payload = {
             "model":  self._model,
@@ -82,11 +82,11 @@ class OpenAICompatibleAdapter:
             )
         except httpx.ConnectError as exc:
             raise LLMUnavailableError(
-                f"LLM-Endpunkt nicht erreichbar: {self._url}"
+                f"LLM endpoint not reachable: {self._url}"
             ) from exc
         except httpx.TimeoutException as exc:
             raise LLMUnavailableError(
-                f"LLM-Endpunkt Timeout nach {self._timeout}s: {self._url}"
+                f"LLM endpoint timeout after {self._timeout}s: {self._url}"
             ) from exc
 
         self._raise_for_status(response)
@@ -95,16 +95,16 @@ class OpenAICompatibleAdapter:
             return response.json()["choices"][0]["message"]["content"]
         except (KeyError, IndexError) as exc:
             raise LLMResponseError(
-                f"Unerwartetes Antwort-Format vom LLM: {response.text[:200]}"
+                f"Unexpected response format from LLM: {response.text[:200]}"
             ) from exc
 
     def embed(self, text: str) -> list[float]:
         """
-        Berechnet den Embedding-Vektor für den gegebenen Text.
+        Computes the embedding vector for the given text.
 
-        Verwendet das konfigurierte Modell dieser Adapter-Instanz —
-        beim Embedding-Adapter ist das ein dediziertes Embedding-Modell
-        (z.B. nomic-embed-text), nicht das Chat-Modell.
+        Uses the configured model of this adapter instance —
+        for the embedding adapter this is a dedicated embedding model
+        (e.g. nomic-embed-text), not the chat model.
         """
         payload = {"model": self._model, "input": text}
         try:
@@ -116,11 +116,11 @@ class OpenAICompatibleAdapter:
             )
         except httpx.ConnectError as exc:
             raise LLMUnavailableError(
-                f"Embedding-Endpunkt nicht erreichbar: {self._url}"
+                f"Embedding endpoint not reachable: {self._url}"
             ) from exc
         except httpx.TimeoutException as exc:
             raise LLMUnavailableError(
-                f"Embedding-Endpunkt Timeout nach {self._timeout}s: {self._url}"
+                f"Embedding endpoint timeout after {self._timeout}s: {self._url}"
             ) from exc
 
         self._raise_for_status(response)
@@ -129,11 +129,11 @@ class OpenAICompatibleAdapter:
             return response.json()["data"][0]["embedding"]
         except (KeyError, IndexError) as exc:
             raise LLMResponseError(
-                f"Unerwartetes Embedding-Antwort-Format: {response.text[:200]}"
+                f"Unexpected embedding response format: {response.text[:200]}"
             ) from exc
 
     def health_check(self) -> bool:
-        """Prüft ob der Endpunkt erreichbar und betriebsbereit ist."""
+        """Checks whether the endpoint is reachable and operational."""
         try:
             response = httpx.get(
                 f"{self._url}/v1/models",
@@ -145,17 +145,17 @@ class OpenAICompatibleAdapter:
             return False
 
     # ------------------------------------------------------------------
-    # Internes
+    # Internal
     # ------------------------------------------------------------------
 
     def _raise_for_status(self, response: httpx.Response) -> None:
         if response.status_code >= 500:
             raise LLMUnavailableError(
-                f"LLM-Server-Fehler {response.status_code}: {response.text[:200]}"
+                f"LLM server error {response.status_code}: {response.text[:200]}"
             )
         if response.status_code >= 400:
             raise LLMResponseError(
-                f"LLM-Client-Fehler {response.status_code}: {response.text[:200]}"
+                f"LLM client error {response.status_code}: {response.text[:200]}"
             )
 
     def __repr__(self) -> str:
@@ -163,7 +163,7 @@ class OpenAICompatibleAdapter:
 
 
 # ---------------------------------------------------------------------------
-# Factory-Funktionen
+# Factory functions
 # ---------------------------------------------------------------------------
 
 def llm_adapter_from_config(config: LLMConfig) -> OpenAICompatibleAdapter:

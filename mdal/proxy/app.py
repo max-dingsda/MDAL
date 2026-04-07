@@ -1,22 +1,22 @@
 """
-MDAL API-Proxy — FastAPI-Anwendung (F19).
+MDAL API proxy — FastAPI application (F19).
 
-Implementiert die OpenAI Chat Completions API-Oberfläche als Proxy:
-  POST /v1/chat/completions — Hauptendpunkt, leitet durch die MDAL-Pipeline
-  GET  /health              — Betriebszustand
+Implements the OpenAI Chat Completions API surface as a proxy:
+  POST /v1/chat/completions — main endpoint, routes through the MDAL pipeline
+  GET  /health              — operational status
 
-Sprachauswahl (für Fingerprint-Lookup):
-  1. Request-Header X-MDAL-Language (pro Request)
-  2. Konfiguriertes Standardsprachkürzel (app.state.default_language)
+Language selection (for fingerprint lookup):
+  1. Request header X-MDAL-Language (per request)
+  2. Configured default language code (app.state.default_language)
 
-Fehlerbehandlung:
-  - RetryLimitError      → 503 (kein konformer Output produzierbar)
-  - LLMUnavailableError  → 503 (Backend-LLM nicht erreichbar)
-  - Fingerprint fehlt    → 503 (nicht konfiguriert)
-  - Unbekannte Fehler    → 500
+Error handling:
+  - RetryLimitError      → 503 (no conforming output producible)
+  - LLMUnavailableError  → 503 (backend LLM not reachable)
+  - Fingerprint missing  → 503 (not configured)
+  - Unknown errors       → 500
 
-F6:  stream=True wird abgelehnt — MDAL prüft nur vollständige Outputs.
-F15: Statusmeldungen werden geloggt (LoggingStatusReporter im Proxy-Betrieb).
+F6:  stream=True is rejected — MDAL only processes complete outputs.
+F15: Status messages are logged (LoggingStatusReporter in proxy operation).
 """
 
 from __future__ import annotations
@@ -47,12 +47,12 @@ app = FastAPI(
 
 
 # ---------------------------------------------------------------------------
-# Fehler-Handler
+# Error handlers
 # ---------------------------------------------------------------------------
 
 @app.exception_handler(RetryLimitError)
 async def retry_limit_handler(request: Request, exc: RetryLimitError) -> JSONResponse:
-    """F5: Retry-Limit erschöpft — 503 zurückgeben."""
+    """F5: Retry limit exhausted — return 503."""
     body = ErrorResponse.make(
         message    = str(exc),
         error_type = "retry_limit_exceeded",
@@ -78,22 +78,22 @@ async def llm_unavailable_handler(request: Request, exc: LLMUnavailableError) ->
 @app.get("/health")
 def health(request: Request) -> dict[str, str]:
     """
-    Betriebszustand des MDAL-Proxys.
+    Operational status of the MDAL proxy.
 
-    Gibt 200 zurück wenn der Proxy betriebsbereit ist.
-    Gibt 503 zurück wenn der Backend-LLM nicht erreichbar ist.
+    Returns 200 when the proxy is operational.
+    Returns 503 when the backend LLM is not reachable.
     """
     pipeline: PipelineOrchestrator = request.app.state.pipeline
     if not pipeline._llm.health_check():
         raise HTTPException(
             status_code = 503,
-            detail      = "Backend-LLM nicht erreichbar",
+            detail      = "Backend LLM nicht erreichbar",
         )
     return {"status": "ok"}
 
 
 # ---------------------------------------------------------------------------
-# Chat Completions — Hauptendpunkt
+# Chat completions — main endpoint
 # ---------------------------------------------------------------------------
 
 @app.post("/v1/chat/completions")
@@ -102,25 +102,25 @@ def chat_completions(
     request: Request,
 ) -> ChatCompletionResponse:
     """
-    OpenAI-kompatibler Chat-Completions-Endpunkt.
+    OpenAI-compatible chat completions endpoint.
 
-    Ablauf:
-      1. stream=True ablehnen (F6)
-      2. Sprache bestimmen (Header > Config-Default)
-      3. Pipeline ausführen
-      4. Audit schreiben
-      5. OpenAI-kompatible Antwort zurückgeben
+    Flow:
+      1. Reject stream=True (F6)
+      2. Determine language (header > config default)
+      3. Run pipeline
+      4. Write audit entry
+      5. Return OpenAI-compatible response
 
-    Fehler:
-      - RetryLimitError      → 503 (exception_handler oben)
-      - LLMUnavailableError  → 503 (exception_handler oben)
-      - Fingerprint fehlt    → 503
+    Errors:
+      - RetryLimitError      → 503 (exception_handler above)
+      - LLMUnavailableError  → 503 (exception_handler above)
+      - Fingerprint missing  → 503
     """
-    # F6: kein Streaming
+    # F6: no streaming
     if body.stream:
         raise HTTPException(
             status_code = 400,
-            detail      = "stream=true wird von MDAL nicht unterstützt (F6: vollständige Outputs erforderlich)",
+            detail      = "stream=true wird von MDAL nicht unterstützt (F6: vollständige Outputs zwingend)",
         )
 
     pipeline: PipelineOrchestrator = request.app.state.pipeline
@@ -132,7 +132,7 @@ def chat_completions(
 
     messages = body.messages_as_dicts()
 
-    # Audit: Anfrage empfangen
+    # Audit: request received
     if audit:
         audit.write("request_received", {
             "language":      language,
@@ -143,17 +143,17 @@ def chat_completions(
     try:
         output = pipeline.process(messages=messages, language=language)
     except (KeyError, FileNotFoundError) as exc:
-        logger.error("Fingerprint für Sprache '%s' nicht gefunden: %s", language, exc)
+        logger.error("Fingerprint for language '%s' not found: %s", language, exc)
         raise HTTPException(
             status_code = 503,
             detail      = f"Kein Fingerprint für Sprache '{language}' konfiguriert",
         ) from exc
 
-    # Audit: Antwort geliefert
+    # Audit: response delivered
     if audit:
         audit.write("response_delivered", {
-            "language":        language,
-            "output_length":   len(output),
+            "language":      language,
+            "output_length": len(output),
         })
 
     return ChatCompletionResponse.from_content(output)

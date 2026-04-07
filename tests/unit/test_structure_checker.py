@@ -1,4 +1,4 @@
-"""Unit-Tests für Strukturprüfung, Format-Erkennung und Plugin Registry."""
+"""Unit tests for structure checking, format detection, and plugin registry."""
 
 import json
 from pathlib import Path
@@ -45,13 +45,13 @@ class TestDetectFormat:
         r = detect_format("")
         assert r.format == OutputFormat.PROSE
 
-    def test_invalid_json_is_prose(self):
+    def test_invalid_json_is_json(self):
         r = detect_format("{kein: json}")
-        assert r.format == OutputFormat.PROSE
+        assert r.format == OutputFormat.JSON
 
-    def test_invalid_xml_is_prose(self):
+    def test_invalid_xml_is_xml(self):
         r = detect_format("<unclosed>")
-        assert r.format == OutputFormat.PROSE
+        assert r.format == OutputFormat.XML
 
     def test_prose_is_not_structured(self):
         r = detect_format("Plain text.")
@@ -139,7 +139,7 @@ class TestPluginRegistry:
         }
         (d / "manifest.json").write_text(json.dumps(manifest))
         reg = PluginRegistry()
-        reg.load_from(tmp_path)   # Soll den Fehler schlucken, nicht crashen
+        reg.load_from(tmp_path)   # should swallow the error, not crash
         assert reg.get("empty") is None
 
     def test_get_returns_plugin(self, tmp_path):
@@ -169,7 +169,7 @@ class TestPluginRegistry:
         assert reg.find_for_namespace("http://unknown.com") is None
 
     def test_private_plugin_wins_over_community(self, tmp_path):
-        """Erste geladene Registry hat Vorrang — private vor community."""
+        """First loaded registry takes precedence — private before community."""
         private_dir   = tmp_path / "private"
         community_dir = tmp_path / "community"
         private_dir.mkdir()
@@ -193,7 +193,7 @@ class TestPluginRegistry:
 
 
 # ---------------------------------------------------------------------------
-# Strukturprüfung — XML
+# Structure check — XML
 # ---------------------------------------------------------------------------
 
 VALID_XML   = "<root><child>text</child></root>"
@@ -282,7 +282,7 @@ class TestStructureCheckerXML:
 
 
 # ---------------------------------------------------------------------------
-# Strukturprüfung — JSON
+# Structure check — JSON
 # ---------------------------------------------------------------------------
 
 class TestStructureCheckerJSON:

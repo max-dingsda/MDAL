@@ -71,7 +71,7 @@ chatgpt_export/
 CLAUDE.md
 logs/
 MDAL-handover.md
-linkedin_artikel_mdal.md
+linkedin_artikel_mdal*
 .claude/
 bearbeitungshinweise.txt
 llm-normalization-layer-anforderungen.md

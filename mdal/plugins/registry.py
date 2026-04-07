@@ -1,33 +1,33 @@
 """
-Plugin Registry (F20, NF1, NF2) — Ordnerstruktur-basiertes Plugin-System.
+Plugin Registry (F20, NF1, NF2) — folder-structure-based plugin system.
 
-Verzeichnisstruktur:
+Directory structure:
     {registry_path}/
       bpmn-2.0/
-        manifest.json      ← Pflicht
-        schema.xsd         ← optional (mind. eine der beiden optional. Dateien)
+        manifest.json      ← required
+        schema.xsd         ← optional (at least one of the two optional files required)
         elements.json      ← optional
       archimate-3/
         manifest.json
         schema.xsd
         elements.json
 
-manifest.json-Format:
+manifest.json format:
   {
     "plugin_id":    "bpmn-2.0",
     "display_name": "BPMN 2.0",
     "version":      "2.0",
     "info":         "Business Process Model and Notation 2.0",
     "files":        ["schema.xsd", "elements.json"],
-    "matches": {                        ← optional, für Auto-Erkennung
+    "matches": {                        ← optional, for auto-detection
       "format":    "xml",               ← "xml" | "json"
-      "namespace": "http://..."         ← XML-Namespace oder JSON-Schema-URI
+      "namespace": "http://..."         ← XML namespace or JSON schema URI
     }
   }
 
-Das Format unterscheidet nicht zwischen Community-Plugins und proprietären
-Unternehmens-Plugins — der Unterschied liegt ausschließlich im Ablageort (NF1/NF2).
-Auflösungsreihenfolge: private Registry → Community-Bibliothek.
+The format does not distinguish between community plugins and proprietary
+enterprise plugins — the difference lies solely in the storage location (NF1/NF2).
+Resolution order: private registry → community library.
 """
 
 from __future__ import annotations
@@ -38,23 +38,23 @@ from pathlib import Path
 
 
 class PluginError(Exception):
-    """Wird geworfen bei ungültigen oder inkonsistenten Plugin-Definitionen."""
+    """Raised for invalid or inconsistent plugin definitions."""
 
 
 # ---------------------------------------------------------------------------
-# Datenmodelle
+# Data models
 # ---------------------------------------------------------------------------
 
 @dataclass
 class PluginMatchRule:
-    """Optionale Auto-Erkennungsregel für das Plugin."""
+    """Optional auto-detection rule for the plugin."""
     format:    str             # "xml" | "json"
     namespace: str | None = None
 
 
 @dataclass
 class Plugin:
-    """Ein geladenes Plugin aus der Registry."""
+    """A loaded plugin from the registry."""
     plugin_id:    str
     display_name: str
     version:      str
@@ -73,9 +73,9 @@ class Plugin:
         return self.base_path / "elements.json"
 
     def load_elements(self) -> dict:
-        """Lädt elements.json. Wirft wenn nicht vorhanden."""
+        """Loads elements.json. Raises if not present."""
         if not self.has_elements:
-            raise PluginError(f"Plugin '{self.plugin_id}' hat keine elements.json.")
+            raise PluginError(f"Plugin '{self.plugin_id}' has no elements.json.")
         return json.loads(self.elements_path.read_text(encoding="utf-8"))
 
     def __str__(self) -> str:
@@ -88,12 +88,12 @@ class Plugin:
 
 class PluginRegistry:
     """
-    Lädt und verwaltet Plugins aus einer Ordnerstruktur.
+    Loads and manages plugins from a folder structure.
 
-    Jeder Unterordner des Registry-Verzeichnisses wird als mögliches Plugin
-    betrachtet. Ordner ohne manifest.json werden ignoriert.
+    Each subdirectory of the registry path is treated as a potential plugin.
+    Folders without manifest.json are ignored.
 
-    Unterstützt mehrere Registries mit Priorität (private vor community).
+    Supports multiple registries with priority (private before community).
     """
 
     def __init__(self) -> None:
@@ -101,11 +101,11 @@ class PluginRegistry:
 
     def load_from(self, path: str | Path) -> int:
         """
-        Lädt alle Plugins aus dem gegebenen Verzeichnis.
-        Bereits geladene Plugin-IDs werden nicht überschrieben
-        (erste Registry gewinnt → private Plugins haben Vorrang).
+        Loads all plugins from the given directory.
+        Already-loaded plugin IDs are not overwritten
+        (first registry wins → private plugins take precedence).
 
-        Gibt die Anzahl neu geladener Plugins zurück.
+        Returns the number of newly loaded plugins.
         """
         base = Path(path)
         if not base.is_dir():
@@ -124,19 +124,19 @@ class PluginRegistry:
                     self._plugins[plugin.plugin_id] = plugin
                     loaded += 1
             except PluginError:
-                # Ungültige Plugins überspringen, nicht abbrechen
+                # Skip invalid plugins, do not abort
                 pass
 
         return loaded
 
     def get(self, plugin_id: str) -> Plugin | None:
-        """Gibt das Plugin mit der gegebenen ID zurück oder None."""
+        """Returns the plugin with the given ID or None."""
         return self._plugins.get(plugin_id)
 
     def find_for_namespace(self, namespace: str) -> Plugin | None:
         """
-        Sucht das erste Plugin das zum gegebenen XML-Namespace passt.
-        Auflösungsreihenfolge entspricht der Ladereihenfolge (dict-Reihenfolge).
+        Finds the first plugin matching the given XML namespace.
+        Resolution order follows load order (dict order).
         """
         for plugin in self._plugins.values():
             if (
@@ -147,7 +147,7 @@ class PluginRegistry:
         return None
 
     def find_for_format(self, format_name: str) -> list[Plugin]:
-        """Gibt alle Plugins zurück die für das gegebene Format registriert sind."""
+        """Returns all plugins registered for the given format."""
         return [
             p for p in self._plugins.values()
             if p.match_rule and p.match_rule.format == format_name
@@ -160,7 +160,7 @@ class PluginRegistry:
         return len(self._plugins)
 
     # ------------------------------------------------------------------
-    # Internes
+    # Internal
     # ------------------------------------------------------------------
 
     def _load_plugin(self, base_path: Path, manifest_path: Path) -> Plugin:
@@ -168,32 +168,32 @@ class PluginRegistry:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             raise PluginError(
-                f"Ungültige manifest.json in {base_path}: {exc}"
+                f"Invalid manifest.json in {base_path}: {exc}"
             ) from exc
 
         for required in ("plugin_id", "display_name", "version", "info", "files"):
             if required not in manifest:
                 raise PluginError(
-                    f"Pflichtfeld '{required}' fehlt in {manifest_path}"
+                    f"Required field '{required}' missing in {manifest_path}"
                 )
 
         files: list[str] = manifest["files"]
         has_schema   = "schema.xsd"    in files
         has_elements = "elements.json" in files
 
-        # Mindestens eine optionale Datei muss vorhanden sein
+        # At least one optional file must be present
         if not has_schema and not has_elements:
             raise PluginError(
                 f"Plugin '{manifest['plugin_id']}': "
-                f"Mindestens schema.xsd oder elements.json erforderlich."
+                f"At least schema.xsd or elements.json is required."
             )
 
-        # Dateien die in manifest.files deklariert sind, müssen auch existieren
+        # Files declared in manifest.files must also exist
         for filename in files:
             if not (base_path / filename).exists():
                 raise PluginError(
                     f"Plugin '{manifest['plugin_id']}': "
-                    f"Deklarierte Datei '{filename}' nicht gefunden in {base_path}."
+                    f"Declared file '{filename}' not found in {base_path}."
                 )
 
         match_rule = None

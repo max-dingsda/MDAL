@@ -1,11 +1,11 @@
 """
-Integrations-Tests: Retry-Eskalation (F5).
+Integration tests: retry escalation (F5).
 
-Testziele:
-  - LLM produziert dauerhaft schlechten Output → RetryLimitError nach max_retries
-  - AdminNotifier wird bei Erschöpfung aufgerufen (log + kein Webhook)
-  - Retry-Zähler stimmt exakt
-  - Tiebreaker-Pfad (Layer3) bei MEDIUM+MEDIUM → Entscheidung nach S3
+Test goals:
+  - LLM consistently produces bad output → RetryLimitError after max_retries
+  - AdminNotifier is called on exhaustion (log + no webhook)
+  - Retry counter is exact
+  - Tiebreaker path (Layer3) at MEDIUM+MEDIUM → decision after S3
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ from mdal.verification.semantic.scorer import ScoringEngine
 
 @pytest.fixture
 def strict_fingerprint() -> Fingerprint:
-    """Fingerprint mit strengen Regeln — orthogonale Embeddings → immer LOW."""
+    """Fingerprint with strict rules — orthogonal embeddings → always LOW."""
     return Fingerprint(
         version=1, language="de",
         layer1=StyleRules(
@@ -60,14 +60,14 @@ def make_always_failing_pipeline(
     max_retries: int = 3,
 ) -> tuple[PipelineOrchestrator, QueueStatusReporter]:
     """
-    Pipeline deren LLM immer informellen Text ausgibt und
-    dessen Embeddings immer orthogonal (LOW) sind.
+    Pipeline whose LLM always returns informal text and
+    whose embeddings are always orthogonal (LOW).
     """
-    # LLM gibt immer informellen Text zurück
+    # LLM always returns informal text
     llm_mock = MagicMock()
     llm_mock.complete.return_value = "Das ist halt irgendwie ok super."
 
-    # Embeddings immer orthogonal → Layer2 LOW
+    # Embeddings always orthogonal → Layer2 LOW
     embed_mock = MagicMock()
     embed_mock.embed.return_value = [0.0, 1.0]  # orthogonal zu [1.0, 0.0]
 
@@ -127,18 +127,18 @@ class TestRetryExhaustion:
         assert entries[0]["retry_count"] == 2
 
     def test_llm_called_exactly_max_retries_times(self, strict_fingerprint, tmp_path):
-        """LLM wird genau max_retries mal aufgerufen — nicht mehr, nicht weniger."""
+        """LLM is called exactly max_retries times — no more, no less."""
         notifier = AdminNotifier(NotifierConfig())
         pipeline, _ = make_always_failing_pipeline(
             strict_fingerprint, notifier, max_retries=3
         )
 
-        # Wir müssen an den LLM-Mock heran — über den Store mock
+        # We need access to the LLM mock — via the store mock
         with pytest.raises(RetryLimitError):
             pipeline.process([{"role": "user", "content": "Test."}], "de")
 
-        # Indirekt prüfen: 3 REFINING-Statuses → 3 LLM calls (1 initial + 2 refine)
-        # werden geprüft über Status-Meldungen
+        # Verify indirectly: 3 REFINING statuses → 3 LLM calls (1 initial + 2 refine)
+        # checked via status messages
 
     def test_status_includes_refining_on_retry(self, strict_fingerprint):
         notifier = AdminNotifier(NotifierConfig())
@@ -149,7 +149,7 @@ class TestRetryExhaustion:
         with pytest.raises(RetryLimitError):
             pipeline.process([{"role": "user", "content": "Test."}], "de")
 
-        # Bei max_retries=2: 1 initial + 1 refinement → REFINING einmal
+        # With max_retries=2: 1 initial + 1 refinement → REFINING once
         refining_count = sum(1 for m in status.messages if m == StatusMessage.REFINING)
         assert refining_count == 1
 
@@ -163,7 +163,7 @@ class TestRetryExhaustion:
             pipeline.process([{"role": "user", "content": "Test."}], "de")
 
         error_msg = str(exc_info.value)
-        assert "Retry-Limit" in error_msg
+        assert "Retry limit" in error_msg
         assert "1" in error_msg
 
 
@@ -172,7 +172,7 @@ class TestRetryWithEventualSuccess:
         self, strict_fingerprint, tmp_path
     ):
         """
-        Erster Versuch scheitert, zweiter gelingt → kein Escalation-Log.
+        First attempt fails, second succeeds → no escalation log.
         """
         log_path = tmp_path / "admin.log"
         notifier = AdminNotifier(NotifierConfig(log_path=str(log_path)))
@@ -182,22 +182,24 @@ class TestRetryWithEventualSuccess:
         call_count = {"n": 0}
 
         def controlled_complete(messages):
+            if "Analyze the following user request" in messages[0]["content"]:
+                return "DEFAULT"
             call_count["n"] += 1
             if call_count["n"] == 1:
-                return "Das ist halt irgendwie ok super."  # schlecht
-            return good_text  # gut
+                return "Das ist halt irgendwie ok super."  # bad
+            return good_text  # good
 
         llm_mock = MagicMock()
         llm_mock.complete.side_effect = controlled_complete
 
-        # Gutes Embedding für den zweiten Aufruf
+        # Good embedding for the second call
         embed_call = {"n": 0}
 
         def controlled_embed(text):
             embed_call["n"] += 1
             if embed_call["n"] <= 1:
-                return [0.0, 1.0]  # orthogonal → LOW (erster Verify-Aufruf)
-            return [1.0, 0.0]     # identisch → HIGH (zweiter Verify-Aufruf)
+                return [0.0, 1.0]  # orthogonal → LOW (first verify call)
+            return [1.0, 0.0]     # identical → HIGH (second verify call)
 
         embed_mock = MagicMock()
         embed_mock.embed.side_effect = controlled_embed

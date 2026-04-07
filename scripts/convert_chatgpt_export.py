@@ -1,16 +1,16 @@
 """
-Konvertiert ChatGPT-Export (mapping-Struktur) in MDAL-Trainer-Format.
+Converts ChatGPT export (mapping structure) to MDAL trainer format.
 
-ChatGPT-Export: Liste von Konversationen, jede mit 'mapping'-Dict (Baum-Struktur).
-MDAL-Format: [[{"role": "user"|"assistant", "content": "..."}], ...]
+ChatGPT export: list of conversations, each with a 'mapping' dict (tree structure).
+MDAL format: [[{"role": "user"|"assistant", "content": "..."}], ...]
 
-Führt folgende Filterung durch:
-- Nur Textnachrichten (parts[0] muss str sein)
-- Leere Inhalte werden übersprungen
-- Konversationen mit weniger als 2 Turns werden verworfen
-- Nur Konversationen mit erkennbar deutschem Inhalt (sofern --language=de)
+Applies the following filters:
+- Text messages only (parts[0] must be a str)
+- Empty content is skipped
+- Conversations with fewer than 2 turns are discarded
+- Only conversations with recognizably German content (if --language=de)
 
-Ausgabe: training_de.json im Projektordner
+Output: training_de.json in the project folder
 """
 
 import json
@@ -20,8 +20,8 @@ from pathlib import Path
 
 def extract_turns(conv: dict) -> list[dict]:
     """
-    Extrahiert die lineare Abfolge von User/Assistant-Turns aus der
-    ChatGPT-Mapping-Struktur (Tiefensuche vom current_node rückwärts).
+    Extracts the linear sequence of user/assistant turns from the
+    ChatGPT mapping structure (depth-first traversal backwards from current_node).
     """
     mapping = conv.get("mapping", {})
     current_node_id = conv.get("current_node")
@@ -29,7 +29,7 @@ def extract_turns(conv: dict) -> list[dict]:
     if not current_node_id or current_node_id not in mapping:
         return []
 
-    # Pfad vom current_node zur Wurzel rekonstruieren
+    # Reconstruct path from current_node to root
     path = []
     node_id = current_node_id
     visited = set()
@@ -63,7 +63,7 @@ def extract_turns(conv: dict) -> list[dict]:
 
 
 def is_mostly_german(turns: list[dict], sample_size: int = 3) -> bool:
-    """Grobe Heuristik: prüft auf typisch deutsche Wörter in den ersten Turns."""
+    """Rough heuristic: checks for typical German words in the first turns."""
     german_markers = {
         "ich", "ist", "das", "die", "der", "und", "nicht", "du", "wir",
         "sie", "es", "mit", "auf", "für", "von", "zu", "an", "ein", "eine",
@@ -86,7 +86,7 @@ def convert_files(
     all_conversations: list[list[dict]] = []
 
     for path in input_paths:
-        print(f"Lese {path.name} ...", flush=True)
+        print(f"Reading {path.name} ...", flush=True)
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
 
@@ -103,13 +103,13 @@ def convert_files(
         if max_conversations and len(all_conversations) >= max_conversations:
             break
 
-    print(f"\nGefilterte Konversationen: {len(all_conversations)}")
-    print(f"Gesamte Turns: {sum(len(c) for c in all_conversations)}")
+    print(f"\nFiltered conversations: {len(all_conversations)}")
+    print(f"Total turns: {sum(len(c) for c in all_conversations)}")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(all_conversations, f, ensure_ascii=False, indent=2)
-    print(f"Gespeichert: {output_path}")
+    print(f"Saved: {output_path}")
 
 
 if __name__ == "__main__":
@@ -118,7 +118,7 @@ if __name__ == "__main__":
     output = base / "training_data" / "training_de.json"
 
     input_files = sorted(export_dir.glob("conversations-*.json"))
-    print(f"Gefundene Dateien: {[f.name for f in input_files]}")
+    print(f"Files found: {[f.name for f in input_files]}")
 
     convert_files(
         input_paths=input_files,

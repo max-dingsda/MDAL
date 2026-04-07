@@ -1,23 +1,23 @@
-# MDAL Dokumentation
+# MDAL Documentation
 
-## Überblick
+## Overview
 
-Diese Dokumentation beschreibt Aufbau, Laufzeitverhalten, fachliche Konzepte und Repository-Struktur von MDAL.
+This documentation describes the architecture, runtime behavior, domain concepts, and repository structure of MDAL.
 
-## Inhalte
+## Contents
 
-### System und Architektur
+### System and Architecture
 - [System Overview](01-system-overview.md)
 - [Runtime Pipeline](02-runtime-pipeline.md)
 - [Verification](03-verification.md)
 - [Trainer and Fingerprint](04-trainer-and-fingerprint.md)
 - [Proxy and Operations](05-proxy-and-operations.md)
 
-### Codebasis
+### Codebase
 - [Repository Structure](06-repository-structure.md)
 - [File Reference](07-file-reference.md)
 
-### Fachliche Vertiefung
-- [Fachliches Domänenmodell](08-domain-model.md)
-- [Entscheidungsmodell](09-decision-model.md)
-- [Betriebsprinzipien und Nicht-Ziele](10-operating-principles.md)
+### Domain Deep Dive
+- [Domain Model](08-domain-model.md)
+- [Decision Model](09-decision-model.md)
+- [Operating Principles and Non-Goals](10-operating-principles.md)

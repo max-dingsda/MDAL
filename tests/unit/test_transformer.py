@@ -1,4 +1,4 @@
-"""Unit-Tests für RuleBasedToneTransformer."""
+"""Unit tests for RuleBasedToneTransformer."""
 
 import pytest
 
@@ -47,7 +47,7 @@ class TestRuleBasedToneTransformer:
         fp     = make_fingerprint(rules)
         text   = "Die Analyse zeigt ein klares Ergebnis."
         result = self.t.transform(text, fp)
-        # Formality=3 → informal substitutions aktiv; kein Wort hier informal
+        # Formality=3 → informal substitutions active; no informal word here
         assert "Analyse" in result
         assert "Ergebnis" in result
 
@@ -68,7 +68,7 @@ class TestRuleBasedToneTransformer:
         assert "irgendwie" not in result.lower()
 
     def test_informal_filler_kept_at_low_formality(self):
-        # Formality < threshold → keine automatischen Substitutionen
+        # Formality < threshold → no automatic substitutions
         rules  = StyleRules(formality_level=1)
         fp     = make_fingerprint(rules)
         result = self.t.transform("Das ist super.", fp)
@@ -111,12 +111,12 @@ class TestRuleBasedToneTransformer:
         fp     = make_fingerprint(rules)
         text   = "Die Analyse zeigt ein Ergebnis."
         result = self.t.transform(text, fp)
-        # Kein Satz hinzugefügt — Ausgabe darf nur kürzer oder gleich lang sein
-        assert len(result) <= len(text) + 50  # +50 für mögliche Ersetzungen
+        # No sentence added — output may only be shorter or equal in length
+        assert len(result) <= len(text) + 50  # +50 for possible substitutions
 
 
 # ---------------------------------------------------------------------------
-# Hilfsfunktionen
+# Helper functions
 # ---------------------------------------------------------------------------
 
 class TestReplaceWord:

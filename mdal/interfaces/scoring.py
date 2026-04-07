@@ -1,9 +1,9 @@
 """
-Scoring- und Prüf-Interfaces — Nahtstellen für spätere Rust-Extraktion.
+Scoring and check interfaces — interfaces for future Rust extraction.
 
-Die Scoring-Logik (Schicht 1, Schicht 2, Entscheidungskaskade) ist der
-rechenintensivste Teil von MDAL und der primäre Kandidat für den Rust-Kern.
-Diese Protokolle definieren die Grenzen zwischen Python-Laufzeit und Rust-Kern.
+The scoring logic (Layer 1, Layer 2, decision cascade) is the most
+computationally intensive part of MDAL and the primary candidate for the Rust core.
+These protocols define the boundaries between the Python runtime and the Rust core.
 """
 
 from __future__ import annotations
@@ -18,44 +18,44 @@ if TYPE_CHECKING:
 
 
 class ScoreLevel(str, Enum):
-    """Dreistufige Bewertungsskala für Semantic-Checker-Ergebnisse."""
-    LOW    = "low"     # Klare Abweichung → Refinement
-    MEDIUM = "medium"  # Graubereich → ggf. Transformer oder Tiebreaker
-    HIGH   = "high"    # Konform → Output oder leichte Transformation
+    """Three-level rating scale for semantic checker results."""
+    LOW    = "low"     # Clear deviation → refinement
+    MEDIUM = "medium"  # Grey area → transformer or tiebreaker
+    HIGH   = "high"    # Conforming → output or minor transformation
 
 
 class ScoringDecision(str, Enum):
-    """Entscheidung des Scoring-Modells nach Auswertung aller aktiven Schichten."""
-    OUTPUT      = "output"      # Output direkt durchleiten
-    TRANSFORM   = "transform"   # Ton-Transformer anwenden, dann Output
-    REFINEMENT  = "refinement"  # Output ans LLM zurückgeben (zählt als Retry)
-    TIEBREAK    = "tiebreak"    # Schicht 3 (LLM-as-Judge) wird benötigt
+    """Decision of the scoring model after evaluating all active layers."""
+    OUTPUT      = "output"      # Pass output directly
+    TRANSFORM   = "transform"   # Apply tone transformer, then output
+    REFINEMENT  = "refinement"  # Return output to LLM (counts as retry)
+    TIEBREAK    = "tiebreak"    # Layer 3 (LLM-as-Judge) is required
 
 
 @dataclass
 class CheckResult:
-    """Ergebnis einer einzelnen Semantic-Checker-Schicht."""
+    """Result of a single semantic checker layer."""
     level:   ScoreLevel
     details: str = ""
-    # Rohwert des Ähnlichkeits-Scores (0.0–1.0) — für Schwellwert-Kalibrierung
+    # Raw similarity score (0.0–1.0) — for threshold calibration
     raw_score: float | None = None
 
 
 @dataclass
 class StructureCheckResult:
-    """Ergebnis der Strukturprüfung (F2). Binär — keine Graustufen."""
+    """Result of the structure check (F2). Binary — no grey levels."""
     passed:       bool
     error_report: str = ""
-    # Welche Validierungsstufe hat den Fehler produziert
+    # Which validation stage produced the error
     failed_at:    str | None = None  # "xsd" | "elements" | None
 
 
 @runtime_checkable
 class SemanticCheckerProtocol(Protocol):
     """
-    Interface für eine einzelne Schicht der Semantic-Evaluator-Kaskade.
-    Implementierungen: Layer1RuleChecker, Layer2EmbeddingChecker, Layer3LLMJudge.
-    Schicht 1 und 2 → Rust-Kern; Schicht 3 bleibt Python (LLM-Calls).
+    Interface for a single layer of the semantic evaluator cascade.
+    Implementations: Layer1RuleChecker, Layer2EmbeddingChecker, Layer3LLMJudge.
+    Layers 1 and 2 → Rust core; Layer 3 stays in Python (LLM calls).
     """
 
     def check(
@@ -65,8 +65,8 @@ class SemanticCheckerProtocol(Protocol):
         context: SessionContext,
     ) -> CheckResult:
         """
-        Bewertet einen LLM-Output gegen den Fingerprint.
-        Muss deterministisch sein (Schicht 1) oder reproduzierbar (Schicht 2).
+        Evaluates an LLM output against the fingerprint.
+        Must be deterministic (Layer 1) or reproducible (Layer 2).
         """
         ...
 
@@ -74,18 +74,18 @@ class SemanticCheckerProtocol(Protocol):
 @runtime_checkable
 class ScoringEngineProtocol(Protocol):
     """
-    Entscheidungslogik: nimmt Ergebnisse aller aktiven Schichten und
-    gibt eine ScoringDecision zurück.
+    Decision logic: takes results from all active layers and
+    returns a ScoringDecision.
 
-    Entscheidungstabelle (aus Architekturskizze):
-    S1 OR S2 low              → REFINEMENT
-    S1 AND S2 high            → OUTPUT
-    S1 OR S2 high, andere med → TRANSFORM
-    S1 AND S2 medium          → TIEBREAK (→ Schicht 3)
-    Nach S3 "passt"           → TRANSFORM
-    Nach S3 "passt nicht"     → REFINEMENT
+    Decision table (from architecture sketch):
+    S1 OR S2 low               → REFINEMENT
+    S1 AND S2 high             → OUTPUT
+    S1 OR S2 high, other med   → TRANSFORM
+    S1 AND S2 medium           → TIEBREAK (→ Layer 3)
+    After S3 "matches"         → TRANSFORM
+    After S3 "does not match"  → REFINEMENT
 
-    → Rust-Kern (Zielarchitektur)
+    → Rust core (target architecture)
     """
 
     def decide(self, s1: CheckResult, s2: CheckResult) -> ScoringDecision:
