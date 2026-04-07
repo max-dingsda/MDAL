@@ -52,6 +52,7 @@ app = FastAPI(
 
 @app.exception_handler(RetryLimitError)
 async def retry_limit_handler(request: Request, exc: RetryLimitError) -> JSONResponse:
+    logger.warning("Escalation triggered (F5): %s", exc)
     """F5: Retry limit exhausted — return 503."""
     body = ErrorResponse.make(
         message    = str(exc),
@@ -63,6 +64,7 @@ async def retry_limit_handler(request: Request, exc: RetryLimitError) -> JSONRes
 
 @app.exception_handler(LLMUnavailableError)
 async def llm_unavailable_handler(request: Request, exc: LLMUnavailableError) -> JSONResponse:
+    logger.error("Backend LLM unavailable: %s", exc)
     body = ErrorResponse.make(
         message    = str(exc),
         error_type = "service_unavailable",
@@ -140,6 +142,8 @@ def chat_completions(
             "model":         body.model,
         })
 
+    logger.info("Processing request for model '%s' in language '%s'", body.model, language)
+
     try:
         output = pipeline.process(messages=messages, language=language)
     except (KeyError, FileNotFoundError) as exc:
@@ -155,5 +159,7 @@ def chat_completions(
             "language":      language,
             "output_length": len(output),
         })
+
+    logger.info("Successfully processed request in language '%s'", language)
 
     return ChatCompletionResponse.from_content(output)

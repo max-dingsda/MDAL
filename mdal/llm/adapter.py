@@ -13,6 +13,7 @@ Both can point to the same endpoint (e.g. Ollama) or to different ones.
 
 from __future__ import annotations
 
+import os
 import httpx
 
 from mdal.config import EmbeddingConfig, LLMConfig
@@ -52,6 +53,10 @@ class OpenAICompatibleAdapter:
         self._model  = model
         self._timeout = timeout
         self._headers: dict[str, str] = {}
+        
+        if not api_key:
+            api_key = os.environ.get("OPENAI_API_KEY")
+            
         if api_key:
             self._headers["Authorization"] = f"Bearer {api_key}"
 

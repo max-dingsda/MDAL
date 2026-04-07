@@ -1,0 +1,26 @@
+# Spezielle Konfiguration für den MDAL-Trainer (Commercial Test)
+
+llm:
+  url: "https://api.openai.com"
+  model: "gpt-4o"
+  timeout: 120
+
+embedding:
+  url: "http://localhost:11434"
+  model: "nomic-embed-text"
+  timeout: 30
+
+fingerprint_path: "./fingerprints/default"
+
+plugin_registry_path: "./plugins"
+
+audit:
+  target: "file"
+  path: "./audit/mdal.log"
+
+checks:
+  semantic: true
+  structure: true
+
+notifier:
+  log_path: "./logs/escalations.log"

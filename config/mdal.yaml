@@ -3,10 +3,12 @@
 # Never commit production configs with API keys — use mdal.local.yaml (in .gitignore).
 
 llm:
-  url: "http://localhost:11434"   # Ollama default; or any OpenAI-compatible endpoint
-  model: "mistral:latest"
+  # Für den Commercial Test nutzen wir LiteLLM als Proxy für Claude.
+  # LiteLLM übersetzt das OpenAI-Format von MDAL on-the-fly für Anthropic.
+  url: "http://localhost:4000"   
+  model: "claude-sonnet-4-6"
   timeout: 120
-  # api_key: "sk-..."             # Optional — for commercial APIs
+  api_key: "dummy" # LiteLLM greift auf die env var ANTHROPIC_API_KEY zu
 
 embedding:
   url: "http://localhost:11434"
