@@ -22,10 +22,13 @@ F15: Status messages are logged (LoggingStatusReporter in proxy operation).
 from __future__ import annotations
 
 import logging
+import subprocess
 from typing import Any
+import yaml
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 
 from mdal.audit import AuditWriter
 from mdal.llm.adapter import LLMUnavailableError
@@ -45,6 +48,8 @@ app = FastAPI(
     version     = "0.1.0",
 )
 
+# State for Start/Stop Maintenance Mode
+app.state.is_active = True
 
 # ---------------------------------------------------------------------------
 # Error handlers
@@ -85,6 +90,9 @@ def health(request: Request) -> dict[str, str]:
     Returns 200 when the proxy is operational.
     Returns 503 when the backend LLM is not reachable.
     """
+    if not getattr(request.app.state, "is_active", True) or not getattr(request.app.state, "pipeline", None):
+        raise HTTPException(status_code=503, detail="MDAL Proxy im Wartungsmodus / Nicht konfiguriert")
+
     pipeline: PipelineOrchestrator = request.app.state.pipeline
     if not pipeline._llm.health_check():
         raise HTTPException(
@@ -92,6 +100,157 @@ def health(request: Request) -> dict[str, str]:
             detail      = "Backend LLM nicht erreichbar",
         )
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Configuration UI & API
+# ---------------------------------------------------------------------------
+
+@app.get("/config", response_class=HTMLResponse)
+def get_config_ui():
+    """Serves the Configuration HTML UI."""
+    for p in ["config/config.html", "templates/config.html"]:
+        html_path = Path(p)
+        if html_path.exists():
+            return html_path.read_text(encoding="utf-8")
+    return HTMLResponse("<h1>Error: config.html not found</h1>", status_code=404)
+
+
+@app.get("/api/config")
+def get_config_api():
+    """Returns the current mdal.yaml configuration as JSON."""
+    yaml_path = Path("config/mdal.yaml")
+    if yaml_path.exists():
+        with open(yaml_path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    return {}
+
+
+@app.post("/api/config")
+async def save_config_api(request: Request):
+    """Saves the JSON payload back to mdal.yaml."""
+    data = await request.json()
+    yaml_path = Path("config/mdal.yaml")
+    
+    if yaml_path.exists():
+        with open(yaml_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+    else:
+        config = {}
+        
+    config["llm"] = data.get("llm", {})
+    config["embedding"] = data.get("embedding", {})
+    config["audit"] = data.get("audit", {})
+    config["checks"] = data.get("checks", {})
+    config["notifier"] = data.get("notifier", {})
+    
+    if data.get("fingerprint_path"):
+        config["fingerprint_path"] = data.get("fingerprint_path")
+    if data.get("plugin_registry_path"):
+        config["plugin_registry_path"] = data.get("plugin_registry_path")
+    if data.get("env_start_cmd"):
+        config["env_start_cmd"] = data.get("env_start_cmd")
+        
+    # Clean up empty strings to None for correct YAML output
+    for key in ["llm", "embedding"]:
+        if "api_key" in config.get(key, {}) and not config[key]["api_key"]:
+            config[key].pop("api_key", None)
+            
+    if "connection_string" in config.get("audit", {}) and not config["audit"]["connection_string"]:
+        config["audit"].pop("connection_string", None)
+        
+    if "webhook_url" in config.get("notifier", {}) and not config["notifier"]["webhook_url"]:
+        config["notifier"].pop("webhook_url", None)
+        
+    yaml_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(yaml_path, "w", encoding="utf-8") as f:
+        yaml.dump(config, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        
+    return {"status": "success"}
+
+
+@app.get("/api/browse-folder")
+def browse_folder_api():
+    """Opens a native Windows folder dialog and returns the path."""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        
+        root = tk.Tk()
+        root.withdraw()
+        root.wm_attributes('-topmost', 1)
+        folder = filedialog.askdirectory(title="Ordner auswählen")
+        root.destroy()
+        
+        return {"folder": folder}
+    except Exception as e:
+        logger.error("Error opening folder dialog: %s", e)
+        return {"folder": ""}
+
+@app.post("/api/proxy/state")
+async def set_proxy_state(request: Request):
+    """Toggles the maintenance mode of the proxy."""
+    data = await request.json()
+    target_active = data.get("active", True)
+    
+    if target_active:
+        try:
+            from mdal.config import load_config, validate_runtime_paths
+            from mdal.proxy.startup import build_pipeline, build_audit_writer, connectivity_check
+            from mdal.notifier import AdminNotifier
+            import os
+            
+            config_path = os.environ.get("MDAL_CONFIG", "config/mdal.yaml")
+            config = load_config(config_path)
+            validate_runtime_paths(config)
+            pipeline = build_pipeline(config)
+            audit = build_audit_writer(config)
+            connectivity_check(config)
+            
+            request.app.state.pipeline = pipeline
+            request.app.state.audit = audit
+            request.app.state.default_language = config.language
+            request.app.state.notifier = AdminNotifier(config.notifier)
+            request.app.state.is_active = True
+            logger.info("Proxy-Status geändert: AKTIV (Pipeline erfolgreich geladen)")
+            return {"status": "success", "is_active": True}
+        except Exception as e:
+            logger.error("Proxy-Start fehlgeschlagen: %s", e)
+            return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    else:
+        request.app.state.is_active = False
+        logger.info("Proxy-Status geändert: GESTOPPT (Wartungsmodus)")
+        return {"status": "success", "is_active": False}
+
+@app.post("/api/trainer/start")
+def start_trainer_api():
+    """Spawns the trainer in a new, independent Windows terminal."""
+    try:
+        yaml_path = Path("config/mdal.yaml")
+        env_cmd = ""
+        if yaml_path.exists():
+            with open(yaml_path, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f) or {}
+                env_cmd = config.get("env_start_cmd", "")
+        
+        cmds = []
+        if env_cmd:
+            cmds.append(env_cmd)
+            cmds.append("timeout /t 3 /nobreak")
+        
+        # Standard Commercial-Test Trainer Befehl
+        cmds.append("python -m mdal.trainer.trainer --config config/trainer_commercial.yaml --input manuelle_tests/semantik/gpt4o_chats.json --language de")
+        
+        # Befehle mit '&' für die Windows-Konsole verketten
+        full_cmd = " & ".join(cmds)
+        logger.info(f"Starte Trainer in neuem Fenster: {full_cmd}")
+        
+        # creationflags=subprocess.CREATE_NEW_CONSOLE öffnet ein natives Windows CMD!
+        subprocess.Popen(full_cmd, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        return {"status": "success"}
+    except Exception as e:
+        logger.error("Fehler beim Starten des Trainers: %s", e)
+        return {"status": "error", "message": str(e)}
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +277,12 @@ def chat_completions(
       - LLMUnavailableError  → 503 (exception_handler above)
       - Fingerprint missing  → 503
     """
+    if not getattr(request.app.state, "is_active", True):
+        raise HTTPException(
+            status_code=503,
+            detail="MDAL Proxy ist momentan gestoppt (Wartungsmodus)."
+        )
+
     # F6: no streaming
     if body.stream:
         raise HTTPException(

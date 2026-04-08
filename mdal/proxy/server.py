@@ -13,7 +13,7 @@ Configuration path:
 Environment variables:
   MDAL_CONFIG  — path to the YAML configuration file
   MDAL_HOST    — bind address (default: 0.0.0.0)
-  MDAL_PORT    — port (default: 8080)
+  MDAL_PORT    — port (default: 6969)
   MDAL_LOG     — log level (default: INFO)
 """
 
@@ -44,53 +44,51 @@ def main() -> None:
     logger = logging.getLogger("mdal.server")
 
     config_path = os.environ.get("MDAL_CONFIG", "config/mdal.yaml")
-    logger.info("Loading configuration: %s", config_path)
+    host = os.environ.get("MDAL_HOST", "0.0.0.0")
+    port = int(os.environ.get("MDAL_PORT", "6969"))
 
+    # Start with a safe default state
+    app.state.pipeline = None
+    app.state.audit = None
+    app.state.default_language = "de"
+    app.state.is_active = False
+    app.state.notifier = None
+
+    logger.info("Loading configuration: %s", config_path)
     try:
         config = load_config(config_path)
         validate_runtime_paths(config)
-    except ConfigError as exc:
-        logger.critical("Configuration error — server will not start (F11): %s", exc)
-        sys.exit(1)
-
-    logger.info("Initializing MDAL pipeline …")
-    try:
+        logger.info("Initializing MDAL pipeline …")
         pipeline = build_pipeline(config)
         audit    = build_audit_writer(config)
-    except Exception as exc:
-        logger.critical("Initialization failed: %s", exc)
-        sys.exit(1)
-
-    logger.info("Checking connectivity to external endpoints …")
-    try:
+        logger.info("Checking connectivity to external endpoints …")
         connectivity_check(config)
-    except ConfigError as exc:
-        logger.critical("Connectivity check failed — server will not start (F11): %s", exc)
-        sys.exit(1)
 
-    # Store dependencies in app state (available to route handlers)
-    app.state.pipeline         = pipeline
-    app.state.audit            = audit
-    app.state.default_language = config.language
-
-    # F4/F11: Global exception handler for technical crashes
-    notifier = AdminNotifier(config.notifier)
+        app.state.pipeline         = pipeline
+        app.state.audit            = audit
+        app.state.default_language = config.language
+        app.state.notifier         = AdminNotifier(config.notifier)
+        app.state.is_active        = True
+    except Exception as exc:
+        logger.warning("Startup checks failed: %s", exc)
+        logger.warning(
+            "\033[1;31m>>> MDAL is starting in CONFIGURATION MODE. Please visit http://localhost:%d/config <<<\033[0m", port
+        )
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.error("Unhandled technical error: %s", exc, exc_info=True)
-        notifier.notify_technical_crash(
-            error=type(exc).__name__,
-            details=str(exc),
-            traceback_str=traceback.format_exc(),
-        )
+        notifier = getattr(request.app.state, "notifier", None)
+        if notifier:
+            notifier.notify_technical_crash(
+                error=type(exc).__name__,
+                details=str(exc),
+                traceback_str=traceback.format_exc(),
+            )
         return JSONResponse(
             status_code=503,
             content={"detail": "Dienst nicht verfügbar (Technischer Fehler)"}
         )
-
-    host = os.environ.get("MDAL_HOST", "0.0.0.0")
-    port = int(os.environ.get("MDAL_PORT", "8080"))
 
     logger.info("MDAL proxy ready on %s:%d", host, port)
     uvicorn.run(app, host=host, port=port, log_level=log_level.lower())

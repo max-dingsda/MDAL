@@ -25,18 +25,19 @@ All that's needed is a recent Python environment:
 pip install -r requirements.txt
 ```
 
-### 2. Start the MDAL proxy (runtime environment)
-The proxy acts as a drop-in replacement for the standard OpenAI API (endpoint `/v1/chat/completions`).
-*(Make sure your `config/mdal.yaml` is configured correctly.)*
+### 2. Start the MDAL Server 
+MDAL features a built-in configuration web interface (similar to a smart home router setup). You don't need to manually edit YAML files to get started.
+
 ```bash
-# Starts on port 8080 by default.
-# The port can optionally be changed via the MDAL_PORT environment variable.
-set MDAL_PORT=8081
+# Starts on port 6969 by default
 python -m mdal.proxy.server
 ```
 
-### 3. Start the MDAL trainer (fingerprint calibration)
-The offline component for deriving a new, versioned character fingerprint from historical chat logs (golden samples):
+### 3. Configure and Run +From the Control Center UI, you can: 
+- Set up your LLM and Embedding endpoints (with presets for Ollama, OpenAI, Anthropic, Google). - Configure your Audit Log paths and Validation Checks. 
+- Start the MDAL Trainer with a single click to derive a new character fingerprint from your chat logs. 
+- Toggle the server into Active Mode, where it acts as a drop-in replacement for the standard OpenAI API at http://localhost:6969/v1/chat/completions.
+
 ```bash
 python -m mdal.trainer.trainer --config config/mdal.yaml --input your_chats.json --language de
 ```

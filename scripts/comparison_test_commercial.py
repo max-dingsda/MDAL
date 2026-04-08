@@ -17,7 +17,7 @@ def main():
 
     # Clients initialisieren (GPT-Client entfällt, da wir den Cache nutzen)
     client_claude = Anthropic(api_key=ant_key)
-    mdal_port = os.environ.get("MDAL_PORT", "8080")
+    mdal_port = os.environ.get("MDAL_PORT", "6969")
     client_mdal = OpenAI(base_url=f"http://localhost:{mdal_port}/v1", api_key="dummy-key")
 
     input_file = Path("manuelle_tests/semantik/gpt4o_chats.json")

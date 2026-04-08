@@ -1,41 +1,18 @@
-# MDAL — Example Configuration
-# Copy this file to mdal.yaml and adjust as needed.
-# Never commit production configs with API keys — use mdal.local.yaml (in .gitignore).
-
 llm:
-  # Für den Commercial Test nutzen wir LiteLLM als Proxy für Claude.
-  # LiteLLM übersetzt das OpenAI-Format von MDAL on-the-fly für Anthropic.
-  url: "http://localhost:4000"   
-  model: "claude-sonnet-4-6"
-  timeout: 120
-  api_key: "dummy" # LiteLLM greift auf die env var ANTHROPIC_API_KEY zu
-
+  url: http://localhost:11436
+  model: gpt-oss:20b
+  timeout: 240
 embedding:
-  url: "http://localhost:11434"
-  model: "nomic-embed-text"
+  url: http://localhost:11434
+  model: nomic-embed-text
   timeout: 30
-
-fingerprint_path: "./fingerprints/default"
-
-plugin_registry_path: "./plugins"
-
+fingerprint_path: ./fingerprints/default
+plugin_registry_path: ./plugins
 audit:
-  target: "file"                  # "file" | "postgresql" | "mysql" | "mssql"
-  path: "./audit/mdal.log"
-  # connection_string: "postgresql://user:pass@host/db"   # for DB targets
-
+  target: file
+  path: C:/Users/mgoum/Downloads/mdal.log
 checks:
   semantic: true
-  structure: true
-  # At least one check must be active (F18).
-  # Setting both to false simultaneously is not permitted.
-
+  structure: false
 notifier:
-  log_path: "./logs/escalations.log"
-  # webhook_url: "https://example.com/hooks/mdal-escalation"
-
-# Fallback model (F9) — optional
-# fallback_llm:
-#   url: "http://localhost:11434"
-#   model: "gemma2"
-#   timeout: 60
+  log_path: ./logs/escalations.log

@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MDAL Configuration Interface</title>
+    <!-- Bootstrap 5 CSS for quick, modern styling -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f6f9; padding-top: 2rem; padding-bottom: 2rem; }
+        .card { box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 1.5rem; border: none; }
+        .section-title { font-weight: 600; color: #343a40; margin-bottom: 1.5rem; border-bottom: 2px solid #e9ecef; padding-bottom: 0.5rem; }
+        .control-panel { background-color: #fff; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 2rem; }
+        
+        /* Dark Mode Overrides */
+        [data-bs-theme="dark"] body { background-color: #212529; }
+        [data-bs-theme="dark"] .control-panel, [data-bs-theme="dark"] .card { background-color: #2b3035; box-shadow: 0 4px 6px rgba(0,0,0,0.25); }
+        [data-bs-theme="dark"] .section-title { color: #f8f9fa; border-bottom-color: #495057; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- TOP: Start / Stop / Trainer Buttons -->
+    <div class="control-panel d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center">
+            <h4 class="mb-0 text-primary me-4">MDAL Control Center</h4>
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+                <label class="form-check-label small text-muted" for="darkModeToggle">Dark Mode</label>
+            </div>
+        </div>
+        <div>
+            <button type="button" class="btn btn-success me-2 px-4" onclick="setMdalState(true)">▶ Start MDAL</button>
+            <button type="button" class="btn btn-danger me-4 px-4" onclick="setMdalState(false)">■ Stop MDAL</button>
+            <button type="button" class="btn btn-outline-primary px-4" onclick="startTrainer()">⚙ Trainer Starten</button>
+        </div>
+    </div>
+
+    <form id="configForm" onsubmit="event.preventDefault();">
+        <!-- SECTION: Modelle -->
+        <div class="card p-4">
+            <h5 class="section-title">Modelle</h5>
+            
+            <!-- LLM Row -->
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label fw-bold mb-0">LLM (Chat / Evaluation)</label>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="LLM Presets">
+                        <button type="button" class="btn btn-outline-secondary" onclick="setLLMPreset('ollama')">Ollama</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setLLMPreset('openai')">OpenAI</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setLLMPreset('anthropic')">Anthropic</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setLLMPreset('google')">Google</button>
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small mb-1">Endpoint URL</label>
+                        <input type="text" id="llm_url" class="form-control" placeholder="http://localhost:4000">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small mb-1">Model Name</label>
+                        <input type="text" id="llm_model" class="form-control" placeholder="gpt-4o">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small mb-1">API-Key</label>
+                        <input type="password" id="llm_key" class="form-control" placeholder="Optional">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label text-muted small mb-1">Timeout (s)</label>
+                        <input type="number" id="llm_timeout" class="form-control" value="120">
+                    </div>
+                </div>
+                <!-- LLM Proxy Info (Hidden by default) -->
+                <div id="llm_proxy_info" class="alert alert-info mt-3 py-2 mb-0" style="display: none;">
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="fs-5 me-2">🔄</span>
+                        <strong>Proxy-Übersetzer benötigt (z.B. LiteLLM)</strong>
+                    </div>
+                    <p class="mb-2 small">Dieser Anbieter nutzt keine native OpenAI-Schnittstelle. MDAL sendet die Anfragen an den lokalen Proxy (Endpoint URL), welcher sie übersetzt. Startbefehl für das Terminal:</p>
+                    <input type="text" id="llm_proxy_cmd" class="form-control form-control-sm font-monospace text-muted" readonly>
+                </div>
+            </div>
+
+            <!-- Embedding Row -->
+            <div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label fw-bold mb-0">Embedding-Model</label>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Embedding Presets">
+                        <button type="button" class="btn btn-outline-secondary" onclick="setEmbedPreset('ollama')">Ollama</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setEmbedPreset('openai')">OpenAI</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setEmbedPreset('anthropic')">Anthropic</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setEmbedPreset('google')">Google</button>
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label text-muted small mb-1">Endpoint URL</label>
+                        <input type="text" id="embed_url" class="form-control" placeholder="http://localhost:11434">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small mb-1">Model Name</label>
+                        <input type="text" id="embed_model" class="form-control" placeholder="nomic-embed-text">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label text-muted small mb-1">API-Key</label>
+                        <input type="password" id="embed_key" class="form-control" placeholder="Optional">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label text-muted small mb-1">Timeout (s)</label>
+                        <input type="number" id="embed_timeout" class="form-control" value="30">
+                    </div>
+                </div>
+                <!-- Embed Proxy Info (Hidden by default) -->
+                <div id="embed_proxy_info" class="alert alert-info mt-3 py-2 mb-0" style="display: none;">
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="fs-5 me-2">🔄</span>
+                        <strong>Proxy-Übersetzer benötigt (z.B. LiteLLM)</strong>
+                    </div>
+                    <p class="mb-2 small">Dieser Anbieter nutzt keine native OpenAI-Schnittstelle. Startbefehl für das Terminal:</p>
+                    <input type="text" id="embed_proxy_cmd" class="form-control form-control-sm font-monospace text-muted" readonly>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION: Audit -->
+        <div class="card p-4">
+            <h5 class="section-title">Audit Log</h5>
+            
+            <!-- Radio Buttons -->
+            <div class="mb-3">
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="auditType" id="audit_off" value="off" checked onchange="updateAuditUI()">
+                    <label class="form-check-label" for="audit_off">OFF</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="auditType" id="audit_fs" value="file" onchange="updateAuditUI()">
+                    <label class="form-check-label" for="audit_fs">Filesystem</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="auditType" id="audit_db" value="db" onchange="updateAuditUI()">
+                    <label class="form-check-label" for="audit_db">Database</label>
+                </div>
+            </div>
+
+            <!-- Dependent Inputs -->
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label text-muted small mb-1">Filesystem Pfad</label>
+                    <div class="input-group">
+                        <input type="text" id="audit_fs_path" class="form-control" placeholder="./audit/mdal.log" disabled>
+                        <button class="btn btn-outline-secondary" type="button" id="audit_fs_btn" disabled onclick="selectFolder('audit_fs_path', '/mdal.log')">📁 Durchsuchen</button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label text-muted small mb-1">Database Connection String</label>
+                    <input type="text" id="audit_db_conn" class="form-control" placeholder="postgresql://user:pass@host/db" disabled>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION: System & Notifier -->
+        <div class="card p-4">
+            <h5 class="section-title">System-Umgebung & Pfade</h5>
+            
+            <div class="mb-4">
+                <label class="form-label fw-bold">Python Virtual Environment (Startbefehl)</label>
+                <input type="text" id="sys_env_cmd" class="form-control" placeholder="z.B. conda activate mdal oder source venv/bin/activate">
+                <div class="form-text text-muted">Wird im Terminal ausgeführt, bevor der MDAL-Server oder Trainer über die Control-Buttons gestartet wird (optional).</div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Fingerprint Path</label>
+                <div class="input-group">
+                    <input type="text" id="sys_fingerprint_path" class="form-control" placeholder="./fingerprints/default">
+                    <button class="btn btn-outline-secondary" type="button" onclick="selectFolder('sys_fingerprint_path', '/default')">📁 Durchsuchen</button>
+                </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Plugin Registry Path</label>
+                    <div class="input-group">
+                        <input type="text" id="sys_plugin_path" class="form-control" placeholder="./plugins">
+                        <button class="btn btn-outline-secondary" type="button" onclick="selectFolder('sys_plugin_path', '')">📁 Durchsuchen</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Escalation Log Path (Notifier)</label>
+                    <div class="input-group">
+                        <input type="text" id="sys_escalation_path" class="form-control" placeholder="./logs/escalations.log">
+                        <button class="btn btn-outline-secondary" type="button" onclick="selectFolder('sys_escalation_path', '/escalations.log')">📁 Durchsuchen</button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Webhook URL (Optional)</label>
+                    <input type="text" id="sys_webhook_url" class="form-control" placeholder="https://example.com/hook">
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION: Checks -->
+        <div class="card p-4">
+            <h5 class="section-title">Checks (Validierungs-Ebenen)</h5>
+            
+            <div class="mb-3">
+                <div class="form-check form-switch fs-5 mb-2">
+                    <input class="form-check-input" type="checkbox" id="check_semantic" checked onchange="updateChecksUI()">
+                    <label class="form-check-label" for="check_semantic">Semantic Check</label>
+                </div>
+                <div class="form-check form-switch fs-5">
+                    <input class="form-check-input" type="checkbox" id="check_structure" checked onchange="updateChecksUI()">
+                    <label class="form-check-label" for="check_structure">Structure Check</label>
+                </div>
+            </div>
+
+            <!-- Warning Alert (Hidden by default) -->
+            <div id="checks_warning" class="alert alert-warning mt-3" style="display: none;">
+                <strong>⚠️ Warnung:</strong> MDAL führt keine Prüfungen durch, wenn beide Checks deaktiviert sind! Requests werden einfach durchgereicht (Bypass).
+            </div>
+        </div>
+
+        <!-- SAVE BUTTON -->
+        <div class="text-end">
+            <button type="button" class="btn btn-primary px-5 py-2" onclick="saveConfig()">Konfiguration Speichern</button>
+        </div>
+    </form>
+</div>
+
+<!-- Frontend Logic for Toggles -->
+<script>
+    function updateAuditUI() {
+        const isOff = document.getElementById('audit_off').checked;
+        const isFs = document.getElementById('audit_fs').checked;
+        const isDb = document.getElementById('audit_db').checked;
+        
+        // Enable/Disable inputs based on radio selection
+        const fsInput = document.getElementById('audit_fs_path');
+        const fsBtn = document.getElementById('audit_fs_btn');
+        const dbInput = document.getElementById('audit_db_conn');
+        
+        fsInput.disabled = !isFs;
+        fsBtn.disabled = !isFs;
+        dbInput.disabled = !isDb;
+        
+        // Optional: clear out inputs when switching to OFF to indicate they aren't used
+        if (isOff) {
+            fsInput.value = '';
+            dbInput.value = '';
+        }
+    }
+
+    function updateChecksUI() {
+        const semantic = document.getElementById('check_semantic').checked;
+        const structure = document.getElementById('check_structure').checked;
+        const warning = document.getElementById('checks_warning');
+        
+        // Show warning if both are false
+        if (!semantic && !structure) {
+            warning.style.display = 'block';
+        } else {
+            warning.style.display = 'none';
+        }
+    }
+
+    function setLLMPreset(provider) {
+        const url = document.getElementById('llm_url');
+        const model = document.getElementById('llm_model');
+        const proxyInfo = document.getElementById('llm_proxy_info');
+        const proxyCmd = document.getElementById('llm_proxy_cmd');
+
+        if (provider === 'ollama') {
+            url.value = 'http://localhost:11434';
+            model.value = 'llama3';
+            proxyInfo.style.display = 'none';
+        } else if (provider === 'openai') {
+            url.value = 'https://api.openai.com';
+            model.value = 'gpt-4o';
+            proxyInfo.style.display = 'none';
+        } else if (provider === 'anthropic') {
+            url.value = 'http://localhost:4000';
+            model.value = 'claude-sonnet-4-6';
+            proxyCmd.value = 'litellm --model anthropic/claude-sonnet-4-6 --port 4000';
+            proxyInfo.style.display = 'block';
+        } else if (provider === 'google') {
+            url.value = 'http://localhost:4000';
+            model.value = 'gemini-1.5-pro';
+            proxyCmd.value = 'litellm --model gemini/gemini-1.5-pro --port 4000';
+            proxyInfo.style.display = 'block';
+        }
+    }
+
+    function setEmbedPreset(provider) {
+        const url = document.getElementById('embed_url');
+        const model = document.getElementById('embed_model');
+        const proxyInfo = document.getElementById('embed_proxy_info');
+        const proxyCmd = document.getElementById('embed_proxy_cmd');
+
+        if (provider === 'ollama') {
+            url.value = 'http://localhost:11434';
+            model.value = 'nomic-embed-text';
+            proxyInfo.style.display = 'none';
+        } else if (provider === 'openai') {
+            url.value = 'https://api.openai.com';
+            model.value = 'text-embedding-3-small';
+            proxyInfo.style.display = 'none';
+        } else if (provider === 'anthropic') {
+            url.value = 'http://localhost:4000';
+            model.value = 'voyage-2'; // Wird häufig mit Anthropic kombiniert
+            proxyCmd.value = 'litellm --model voyage/voyage-2 --port 4000';
+            proxyInfo.style.display = 'block';
+        } else if (provider === 'google') {
+            url.value = 'http://localhost:4000';
+            model.value = 'text-embedding-004';
+            proxyCmd.value = 'litellm --model gemini/text-embedding-004 --port 4000';
+            proxyInfo.style.display = 'block';
+        }
+    }
+
+    async function selectFolder(inputId, suffix) {
+        try {
+            // Ruft den lokalen MDAL-Server auf, um ein natives Ordner-Fenster zu öffnen
+            const response = await fetch('/api/browse-folder');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.folder) {
+                    // Slashes normalisieren und den festen Standardnamen anhängen
+                    let path = data.folder.replace(/\\/g, '/');
+                    if (suffix) {
+                        path = path.replace(/\/$/, '') + suffix;
+                    }
+                    document.getElementById(inputId).value = path;
+                }
+            }
+        } catch (e) {
+            alert("Fehler: Das MDAL-Backend ist nicht erreichbar oder die Route fehlt noch.");
+        }
+    }
+
+    function toggleDarkMode() {
+        const isDark = document.getElementById('darkModeToggle').checked;
+        document.documentElement.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
+    }
+
+    async function loadConfig() {
+        try {
+            const res = await fetch('/api/config');
+            if (res.ok) {
+                const cfg = await res.json();
+                
+                if (cfg.llm) {
+                    document.getElementById('llm_url').value = cfg.llm.url || '';
+                    document.getElementById('llm_model').value = cfg.llm.model || '';
+                    document.getElementById('llm_key').value = cfg.llm.api_key || '';
+                    document.getElementById('llm_timeout').value = cfg.llm.timeout || 120;
+                }
+                if (cfg.embedding) {
+                    document.getElementById('embed_url').value = cfg.embedding.url || '';
+                    document.getElementById('embed_model').value = cfg.embedding.model || '';
+                    document.getElementById('embed_key').value = cfg.embedding.api_key || '';
+                    document.getElementById('embed_timeout').value = cfg.embedding.timeout || 30;
+                }
+                if (cfg.audit) {
+                    const target = cfg.audit.target || 'off';
+                    if (target === 'off') {
+                        document.getElementById('audit_off').checked = true;
+                    } else if (target === 'file') {
+                        document.getElementById('audit_fs').checked = true;
+                    } else {
+                        document.getElementById('audit_db').checked = true;
+                        document.getElementById('audit_db_conn').value = cfg.audit.connection_string || '';
+                    }
+                    document.getElementById('audit_fs_path').value = cfg.audit.path || './audit/mdal.log';
+                }
+                if (cfg.checks) {
+                    if (cfg.checks.semantic !== undefined) document.getElementById('check_semantic').checked = cfg.checks.semantic;
+                    if (cfg.checks.structure !== undefined) document.getElementById('check_structure').checked = cfg.checks.structure;
+                }
+                if (cfg.notifier) {
+                    document.getElementById('sys_escalation_path').value = cfg.notifier.log_path || '';
+                    document.getElementById('sys_webhook_url').value = cfg.notifier.webhook_url || '';
+                }
+                
+                if (cfg.fingerprint_path) document.getElementById('sys_fingerprint_path').value = cfg.fingerprint_path;
+                if (cfg.plugin_registry_path) document.getElementById('sys_plugin_path').value = cfg.plugin_registry_path;
+                if (cfg.env_start_cmd) document.getElementById('sys_env_cmd').value = cfg.env_start_cmd;
+            }
+        } catch (e) {
+            console.log("Konnte Konfiguration nicht laden", e);
+        }
+        updateAuditUI();
+        updateChecksUI();
+    }
+
+    async function saveConfig() {
+        const btn = document.querySelector('button.btn-primary');
+        const oldText = btn.innerText;
+        btn.innerText = "Speichere...";
+        btn.disabled = true;
+
+        let auditTarget = 'off';
+        if (document.getElementById('audit_fs').checked) auditTarget = 'file';
+        if (document.getElementById('audit_db').checked) {
+            const connStr = document.getElementById('audit_db_conn').value;
+            auditTarget = connStr.split(':')[0] || 'postgresql'; // Setzt Prefix anhand des Strings
+        }
+
+        const configData = {
+            llm: {
+                url: document.getElementById('llm_url').value,
+                model: document.getElementById('llm_model').value,
+                api_key: document.getElementById('llm_key').value || null,
+                timeout: parseInt(document.getElementById('llm_timeout').value) || 120
+            },
+            embedding: {
+                url: document.getElementById('embed_url').value,
+                model: document.getElementById('embed_model').value,
+                api_key: document.getElementById('embed_key').value || null,
+                timeout: parseInt(document.getElementById('embed_timeout').value) || 30
+            },
+            audit: {
+                target: auditTarget,
+                path: document.getElementById('audit_fs_path').value,
+                connection_string: document.getElementById('audit_db_conn').value || null
+            },
+            checks: {
+                semantic: document.getElementById('check_semantic').checked,
+                structure: document.getElementById('check_structure').checked
+            },
+            notifier: {
+                log_path: document.getElementById('sys_escalation_path').value,
+                webhook_url: document.getElementById('sys_webhook_url').value || null
+            },
+            fingerprint_path: document.getElementById('sys_fingerprint_path').value,
+            plugin_registry_path: document.getElementById('sys_plugin_path').value,
+            env_start_cmd: document.getElementById('sys_env_cmd').value || null
+        };
+
+        try {
+            const response = await fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(configData)
+            });
+            if (response.ok) {
+                alert('Erfolgreich in mdal.yaml gespeichert!');
+            } else {
+                alert('Fehler beim Speichern der Konfiguration.');
+            }
+        } catch (e) {
+            alert('Netzwerkfehler: Konnte nicht gespeichert werden.');
+        }
+
+        btn.innerText = oldText;
+        btn.disabled = false;
+    }
+
+    async function setMdalState(active) {
+        try {
+            const res = await fetch('/api/proxy/state', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ active: active })
+            });
+            if (res.ok) {
+                alert(active ? "✅ MDAL Server ist wieder AKTIV und nimmt Anfragen an!" : "🛑 MDAL Server ist jetzt GESTOPPT (Wartungsmodus)!");
+            } else {
+                const data = await res.json();
+                alert("❌ Fehler beim Starten des MDAL Servers:\n" + data.message);
+            }
+        } catch (e) {
+            alert("Fehler bei der Kommunikation mit dem Server.");
+        }
+    }
+
+    async function startTrainer() {
+        try {
+            await fetch('/api/trainer/start', { method: 'POST' });
+        } catch (e) {
+            alert("Fehler beim Starten des Trainers.");
+        }
+    }
+
+    // Initialize UI state on load
+    window.onload = function() {
+        loadConfig();
+    };
+</script>
+
+</body>
+</html>
