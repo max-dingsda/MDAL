@@ -29,7 +29,7 @@ except ImportError:
     detect = None
 
 from mdal.fingerprint.models import Fingerprint
-from mdal.fingerprint.store import FingerprintStore
+from mdal.fingerprint.store import FingerprintStore, FingerprintNotFoundError
 from mdal.interfaces.llm import LLMAdapterProtocol
 from mdal.interfaces.scoring import ScoringDecision
 from mdal.retry import RetryController, RetryLimitError
@@ -39,7 +39,7 @@ from mdal.transformer import LLMToneTransformer
 from mdal.verification.engine import VerificationEngine, VerificationResult
 from mdal.verification.detector import detect_format
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('mdal.notifier')
 
 # ---------------------------------------------------------------------------
 # Refinement prompt
@@ -197,17 +197,52 @@ class PipelineOrchestrator:
         effective_language = detected_lang if detected_lang else language
         
         # Check if fingerprint exists for effective language
-        if not self._store.has_fingerprint(effective_language):
-            user_snippet = ""
-            user_msgs = [m["content"] for m in messages if m["role"] == "user"]
-            if user_msgs:
-                user_snippet = user_msgs[-1][:100]
-            
+        try:
+            logger.info("Effective language: %s, has_fingerprint: %s", effective_language, self._store.has_fingerprint(effective_language))
+            if not self._store.has_fingerprint(effective_language):
+                # Bypass: Fingerprint missing, proceed directly to LLM call
+                user_snippet = ""
+                user_msgs = [m["content"] for m in messages if m["role"] == "user"]
+                if user_msgs:
+                    user_snippet = user_msgs[-1][:100]
+                
+                logger.warning(
+                    "Fingerprint missing (Decision Option B): bypassing verification for language '%s' (detected: %s, config: %s). User message: %s",
+                    effective_language, detected_lang, language, user_snippet
+                )
+                # Bypass: return output directly without fingerprint verification
+                context = SessionContext(
+                    language=effective_language, 
+                    fingerprint_version=None
+                )
+                
+                def initial_call() -> str:
+                    return self._llm.complete(messages)
+                
+                output = self._retry.run(
+                    context=context,
+                    initial_call=initial_call,
+                    refine_call=lambda prev, err: self._llm.complete(messages),
+                    verify=lambda out, ctx: VerificationResult(
+                        decision=ScoringDecision.OUTPUT,
+                        structure_result=None,
+                        semantic_s1=None,
+                        semantic_s2=None,
+                        semantic_s3=None,
+                        output_format="prose",
+                    ),
+                    transform=lambda out: out,  # No transformation
+                )
+                
+                self._status.report(StatusMessage.READY)
+                return _post_process(output)
+        except FingerprintNotFoundError:
+            # Fallback: If store fails to read pointer, assume bypass is necessary
             logger.warning(
-                "Fingerprint missing (Decision Option B): bypassing verification for language '%s' (detected: %s, config: %s). User message: %s",
-                effective_language, detected_lang, language, user_snippet
+                "FingerprintStore Error: Could not load fingerprint for language '%s'. Bypassing verification.",
+                effective_language
             )
-            # Bypass: return output directly without fingerprint verification
+            # Fallback to bypass logic if store fails to read pointer
             context = SessionContext(
                 language=effective_language, 
                 fingerprint_version=None
@@ -233,60 +268,60 @@ class PipelineOrchestrator:
             
             self._status.report(StatusMessage.READY)
             return _post_process(output)
+        else:
+            # Normal path: Fingerprint exists, proceed with full verification
+            logger.info("Fingerprint found for language '%s'. Proceeding with full verification.", effective_language)
+            fingerprint = self._store.load_current(effective_language)
+            version     = self._store.current_version(effective_language) or 0
+            context     = SessionContext(language=effective_language, fingerprint_version=version)
+            
+            def initial_call() -> str:
+                return self._llm.complete(messages)
 
-        fingerprint = self._store.load_current(effective_language)
-        version     = self._store.current_version(effective_language) or 0
-        context     = SessionContext(language=effective_language, fingerprint_version=version)
+            def refine_call(prev_output: str, error_summary: str) -> str:
+                self._status.report(StatusMessage.REFINING)
+                refined_messages = _build_refinement_messages(
+                    messages, prev_output, error_summary
+                )
+                return self._llm.complete(messages)
 
-        def initial_call() -> str:
-            return self._llm.complete(messages)
+            def verify(output: str, ctx: SessionContext) -> VerificationResult:
+                self._status.report(StatusMessage.CHECKING)
 
-        def refine_call(prev_output: str, error_summary: str) -> str:
-            self._status.report(StatusMessage.REFINING)
-            refined_messages = _build_refinement_messages(
-                messages, prev_output, error_summary
+                # F2: detect structured outputs
+                is_structured = detect_format(output).is_structured()
+
+                # F8: Hard Language Lock (block language drift)
+                if not is_structured and detect is not None and len(output.split()) > 10:
+                    try:
+                        detected_lang = detect(output)
+                        if not effective_language.startswith(detected_lang):
+                            error_msg = f"Language drift (F8): expected '{effective_language}', but '{detected_lang}' generated."
+                            self._retry._notifier.notify_escalation(
+                                session_id=ctx.session_id,
+                                retry_count=self._retry._max,
+                                last_error=error_msg,
+                            )
+                            raise RetryLimitError(ctx.session_id, self._retry._max)
+                    except LangDetectException:
+                        pass  # Too short or ambiguous for language detection
+
+                return self._verification.verify(output, fingerprint, ctx)
+
+            def do_transform(output: str) -> str:
+                self._status.report(StatusMessage.ADJUSTING)
+                return self._transformer.transform(output, fingerprint, domain)
+
+            output = self._retry.run(
+                context=context,
+                initial_call=initial_call,
+                refine_call=refine_call,
+                verify=verify,
+                transform=do_transform,
             )
-            return self._llm.complete(refined_messages)
-
-        def verify(output: str, ctx: SessionContext) -> VerificationResult:
-            self._status.report(StatusMessage.CHECKING)
-
-            # F2: detect structured outputs
-            is_structured = detect_format(output).is_structured()
-
-            # F8: Hard Language Lock (block language drift)
-            if not is_structured and detect is not None and len(output.split()) > 10:
-                try:
-                    detected_lang = detect(output)
-                    if not effective_language.startswith(detected_lang):
-                        error_msg = f"Language drift (F8): expected '{effective_language}', but '{detected_lang}' generated."
-                        self._retry._notifier.notify_escalation(
-                            session_id=ctx.session_id,
-                            retry_count=self._retry._max,
-                            last_error=error_msg,
-                        )
-                        raise RetryLimitError(ctx.session_id, self._retry._max)
-                except LangDetectException:
-                    pass  # Too short or ambiguous for language detection
-
-            return self._verification.verify(output, fingerprint, ctx)
-
-        def do_transform(output: str) -> str:
-            self._status.report(StatusMessage.ADJUSTING)
-            return self._transformer.transform(output, fingerprint, domain)
-
-        final_output = self._retry.run(
-            context      = context,
-            initial_call = initial_call,
-            refine_call  = refine_call,
-            verify       = verify,
-            transform    = do_transform,
-        )
-
-        self._status.report(StatusMessage.READY)
-
-        # F21: Apply post-processing filter
-        return _post_process(final_output)
+            
+            self._status.report(StatusMessage.READY)
+            return _post_process(output)
 
 
 # ---------------------------------------------------------------------------
