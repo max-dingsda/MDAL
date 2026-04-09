@@ -31,6 +31,7 @@ except ImportError:
 from mdal.fingerprint.models import Fingerprint
 from mdal.fingerprint.store import FingerprintStore
 from mdal.interfaces.llm import LLMAdapterProtocol
+from mdal.interfaces.scoring import ScoringDecision
 from mdal.retry import RetryController, RetryLimitError
 from mdal.session import SessionContext
 from mdal.status import QueueStatusReporter, StatusMessage, StatusReporter
@@ -110,6 +111,31 @@ def _classify_domain(messages: list[dict], llm: LLMAdapterProtocol) -> str:
     except Exception:
         return "DEFAULT"
 
+
+def _detect_input_language(messages: list[dict]) -> str | None:
+    """
+    Detects the language of the input (user messages) using langdetect.
+    
+    Returns the detected language code (e.g. "de", "en"), or None if detection fails.
+    """
+    if detect is None:
+        return None
+    
+    user_msgs = [m["content"] for m in messages if m["role"] == "user"]
+    if not user_msgs:
+        return None
+    
+    # Concatenate last user message(s) for better detection
+    text = user_msgs[-1][:500]  # First 500 chars for efficiency
+    
+    try:
+        lang_full = detect(text)  # May return "de", "en", "en-US", etc.
+        # Normalize to 2-letter code: "en-US" → "en"
+        return lang_full.split("-")[0].lower()
+    except LangDetectException:
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Pipeline orchestrator
 # ---------------------------------------------------------------------------
@@ -150,7 +176,7 @@ class PipelineOrchestrator:
         Parameters
         ----------
         messages: Chat messages in OpenAI format (role/content).
-        language: Language code (e.g. "de", "en") for fingerprint lookup.
+        language: Language code (e.g. "de", "en") for fingerprint lookup (fallback default).
 
         Returns
         -------
@@ -166,9 +192,51 @@ class PipelineOrchestrator:
         domain = _classify_domain(messages, self._llm)
         logger.info("Pillar B: detected text domain for request: %s", domain)
 
-        fingerprint = self._store.load_current(language)
-        version     = self._store.current_version(language) or 0
-        context     = SessionContext(language=language, fingerprint_version=version)
+        # --- Language Detection (DECISION Intelligent Language Fallback B) ---
+        detected_lang = _detect_input_language(messages)
+        effective_language = detected_lang if detected_lang else language
+        
+        # Check if fingerprint exists for effective language
+        if not self._store.has_fingerprint(effective_language):
+            user_snippet = ""
+            user_msgs = [m["content"] for m in messages if m["role"] == "user"]
+            if user_msgs:
+                user_snippet = user_msgs[-1][:100]
+            
+            logger.warning(
+                "Fingerprint missing (Decision Option B): bypassing verification for language '%s' (detected: %s, config: %s). User message: %s",
+                effective_language, detected_lang, language, user_snippet
+            )
+            # Bypass: return output directly without fingerprint verification
+            context = SessionContext(
+                language=effective_language, 
+                fingerprint_version=None
+            )
+            
+            def initial_call() -> str:
+                return self._llm.complete(messages)
+            
+            output = self._retry.run(
+                context=context,
+                initial_call=initial_call,
+                refine_call=lambda prev, err: self._llm.complete(messages),
+                verify=lambda out, ctx: VerificationResult(
+                    decision=ScoringDecision.OUTPUT,
+                    structure_result=None,
+                    semantic_s1=None,
+                    semantic_s2=None,
+                    semantic_s3=None,
+                    output_format="prose",
+                ),
+                transform=lambda out: out,  # No transformation
+            )
+            
+            self._status.report(StatusMessage.READY)
+            return _post_process(output)
+
+        fingerprint = self._store.load_current(effective_language)
+        version     = self._store.current_version(effective_language) or 0
+        context     = SessionContext(language=effective_language, fingerprint_version=version)
 
         def initial_call() -> str:
             return self._llm.complete(messages)
@@ -190,8 +258,8 @@ class PipelineOrchestrator:
             if not is_structured and detect is not None and len(output.split()) > 10:
                 try:
                     detected_lang = detect(output)
-                    if not language.startswith(detected_lang):
-                        error_msg = f"Language drift (F8): expected '{language}', but '{detected_lang}' generated."
+                    if not effective_language.startswith(detected_lang):
+                        error_msg = f"Language drift (F8): expected '{effective_language}', but '{detected_lang}' generated."
                         self._retry._notifier.notify_escalation(
                             session_id=ctx.session_id,
                             retry_count=self._retry._max,

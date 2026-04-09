@@ -142,6 +142,7 @@ async def save_config_api(request: Request):
     config["embedding"] = data.get("embedding", {})
     config["audit"] = data.get("audit", {})
     config["checks"] = data.get("checks", {})
+    config["max_retries"] = data.get("max_retries", 2)
     config["notifier"] = data.get("notifier", {})
     
     if data.get("fingerprint_path"):

@@ -1,5 +1,5 @@
 llm:
-  url: http://localhost:11436
+  url: http://localhost:11434
   model: gemma4:e4b
   timeout: 240
 embedding:
@@ -14,5 +14,6 @@ audit:
 checks:
   semantic: true
   structure: false
+max_retries: 3
 notifier:
   log_path: ./logs/escalations.log

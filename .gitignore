@@ -49,9 +49,6 @@ audit/
 *.ckpt
 models/
 
-# Context-Handover für frische Chats (nicht committen)
-MDAL-CONTEXT-HANDOVER.md
-
 # Plugin-Daten die nicht commited werden sollen
 plugins/private/
 
@@ -69,18 +66,4 @@ Cargo.lock
 Thumbs.db
 
 #individuelle Ausschlüsse
-Code-Review-Phase5.md
-chatgpt_export/
-CLAUDE.md
-logs/
-MDAL-handover.md
-linkedin_artikel_mdal*
-.claude/
-bearbeitungshinweise.txt
-llm-normalization-layer-anforderungen.md
-phase*
-review_summary.md
-MDAL_Handover.md
-MDAL-Architektur*
-MDAL-Stack*
-TECHNICAL-REVIEW.md
+varPrivateDocs/

@@ -31,7 +31,7 @@ class SessionContext:
     Contains no persisted user content.
     """
     language:            str
-    fingerprint_version: int
+    fingerprint_version: int | None
     session_id:          str             = field(default_factory=lambda: str(uuid4()))
     turn_count:          int             = 0
     _check_history:      list[CheckResult] = field(
