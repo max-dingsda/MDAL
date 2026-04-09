@@ -93,6 +93,10 @@ At runtime the fingerprint is not primarily "sent to the model", but used as the
 - regenerated
 - or escalated
 
+## Trainer Control
+
+The repository includes a basic trainer control in the configuration UI. The `/api/trainer/start` endpoint is currently wired to spawn a Windows terminal and run the commercial trainer flow from `config/trainer_commercial.yaml` using a fixed sample input. This is currently a bootstrap/test workflow rather than a fully generic browser-driven trainer workflow.
+
 The fingerprint is therefore a component of the control layer, not just the generation layer.
 
 ## Overview: Trainer → Fingerprint → Runtime

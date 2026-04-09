@@ -36,6 +36,9 @@ Defines package metadata, dependencies, optional dev-dependencies, and the CLI s
 ### `config/mdal.yaml`
 Example configuration for LLM, embedding, fingerprint paths, plugin registry, audit, checks, notifier, and optional fallback model.
 
+### `config/config.html`
+A simple browser-based configuration UI that talks to the proxy's `/api/config` endpoints and persists settings to `config/mdal.yaml`.
+
 ---
 
 ## Package `mdal/`

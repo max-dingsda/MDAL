@@ -33,10 +33,16 @@ MDAL features a built-in configuration web interface (similar to a smart home ro
 python -m mdal.proxy.server
 ```
 
-### 3. Configure and Run +From the Control Center UI, you can: 
-- Set up your LLM and Embedding endpoints (with presets for Ollama, OpenAI, Anthropic, Google). - Configure your Audit Log paths and Validation Checks. 
-- Start the MDAL Trainer with a single click to derive a new character fingerprint from your chat logs. 
-- Toggle the server into Active Mode, where it acts as a drop-in replacement for the standard OpenAI API at http://localhost:6969/v1/chat/completions.
+### 3. Configure and Run
+
+Open the built-in Control Center in your browser at `http://localhost:6969/config`.
+
+From the Control Center UI, you can:
+- set up your LLM and embedding endpoints with presets for Ollama, OpenAI, Anthropic, and Google
+- configure audit logging, validation checks, notifier settings, fingerprint path, and plugin registry path
+- start or stop the MDAL proxy and launch the trainer from the UI
+
+Some advanced runtime options such as `fallback_llm`, `max_retries`, and `language` are still configured manually in `config/mdal.yaml`.
 
 ```bash
 python -m mdal.trainer.trainer --config config/mdal.yaml --input your_chats.json --language de

@@ -42,6 +42,13 @@ Important: this transformation is subject to strict rules regarding factual accu
 `mdal/proxy/` encapsulates the OpenAI-compatible API surface.
 The primary endpoint is `POST /v1/chat/completions`.
 
+## Configuration UI
+
+The proxy exposes a built-in browser UI at `GET /config` and a JSON configuration API at `/api/config`.
+This interface persists settings to `config/mdal.yaml` and supports the main runtime configuration fields.
+
+Currently, advanced YAML options such as `fallback_llm`, `max_retries`, and `language` are still edited directly in `config/mdal.yaml` rather than via the browser UI.
+
 ## Architecture at Module Level
 
 ```mermaid

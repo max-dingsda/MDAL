@@ -21,6 +21,21 @@ Additionally:
 
 - `GET /health`
 
+## Configuration UI and Control APIs
+
+MDAL exposes a simple browser-based configuration UI at `GET /config`.
+The proxy also provides a JSON-based configuration API:
+
+- `GET /api/config` to read the current configuration from `config/mdal.yaml`
+- `POST /api/config` to save a configuration back to `config/mdal.yaml`
+
+Runtime control endpoints include:
+
+- `POST /api/proxy/state` to toggle the proxy between active and maintenance mode
+- `POST /api/trainer/start` to launch the trainer in a new Windows terminal window
+
+The UI currently covers core fields for LLM, embedding, audit, checks, notifier, fingerprint path, plugin registry path, and an optional environment start command. Advanced runtime fields such as `fallback_llm`, `max_retries`, and `language` are still configured directly in YAML.
+
 ## Request / Response Model
 
 `mdal/proxy/models.py` deliberately mirrors the OpenAI Chat Completions API.

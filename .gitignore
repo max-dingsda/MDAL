@@ -49,6 +49,9 @@ audit/
 *.ckpt
 models/
 
+# Context-Handover für frische Chats (nicht committen)
+MDAL-CONTEXT-HANDOVER.md
+
 # Plugin-Daten die nicht commited werden sollen
 plugins/private/
 
@@ -80,3 +83,4 @@ review_summary.md
 MDAL_Handover.md
 MDAL-Architektur*
 MDAL-Stack*
+TECHNICAL-REVIEW.md

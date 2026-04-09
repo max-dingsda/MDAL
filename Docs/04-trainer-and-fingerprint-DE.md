@@ -95,6 +95,10 @@ Zur Laufzeit wird der Fingerprint nicht primär „an das Modell geschickt“, s
 
 Der Fingerprint ist also ein Bestandteil der Kontrollschicht, nicht nur der Erzeugungsschicht.
 
+## Trainer-Steuerung
+
+Das Repository enthält eine einfache Trainersteuerung in der Konfigurations-UI. Der Endpunkt `/api/trainer/start` startet derzeit ein neues Windows-Terminal und führt den kommerziellen Trainer-Flow aus `config/trainer_commercial.yaml` mit einem festen Beispielinput aus. Das ist aktuell ein Bootstrap-/Test-Workflow, kein vollständig generischer Browser-basierten Trainer-Flow.
+
 ## Überblick Trainer → Fingerprint → Runtime
 
 ```mermaid

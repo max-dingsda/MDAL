@@ -73,3 +73,10 @@ flowchart LR
 - **Fingerprint versioniert pro Sprache**
 - **Layer 3 nur bei Grenzfällen**
 - **Proxy ist OpenAI-kompatibel statt client-spezifisch**
+
+## Konfigurations-UI
+
+Der Proxy stellt eine eingebaute Browser-Benutzeroberfläche unter `GET /config` bereit und bietet eine JSON-Konfigurations-API unter `/api/config`.
+Diese Oberfläche schreibt nach `config/mdal.yaml` und deckt die wichtigsten Runtime-Einstellungen ab.
+
+Fortgeschrittene YAML-Optionen wie `fallback_llm`, `max_retries` und `language` werden derzeit noch direkt in `config/mdal.yaml` gepflegt.

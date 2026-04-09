@@ -36,6 +36,9 @@ Definiert Paket-Metadaten, Dependencies, optionale Dev-Dependencies und die CLI-
 ### `config/mdal.yaml`
 Beispielkonfiguration für LLM, Embedding, Fingerprint-Pfade, Plugin-Registry, Audit, Checks, Notifier und optionales Fallback-Modell.
 
+### `config/config.html`
+Einfache browserbasierte Konfigurations-UI, die mit den API-Endpunkten in `mdal/proxy/app.py` kommuniziert und Einstellungen in `config/mdal.yaml` speichert.
+
 ---
 
 ## Paket `mdal/`
