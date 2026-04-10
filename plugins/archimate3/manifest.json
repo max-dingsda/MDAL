@@ -1,0 +1,11 @@
+{
+  "plugin_id": "archimate3",
+  "display_name": "ArchiMate 3.1",
+  "version": "3.1",
+  "info": "ArchiMate 3.1 Model Exchange Format",
+  "files": ["schema.xsd", "elements.json"],
+  "matches": {
+    "format": "xml",
+    "namespace": "http://www.opengroup.org/xsd/archimate/3.0/"
+  }
+}

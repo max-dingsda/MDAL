@@ -5,6 +5,7 @@ pydantic>=2.0.0
 httpx>=0.24.0
 PyYAML>=6.0
 langdetect>=1.0.9
+lxml>=4.9.0
 
 # ---------------------------------------------------------
 # Optional database drivers for the audit log (NF5)

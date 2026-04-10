@@ -17,6 +17,7 @@ Prose outputs have no structure → structure check is skipped (F12).
 from __future__ import annotations
 
 import json
+import logging
 import re
 
 from lxml import etree
@@ -24,6 +25,8 @@ from lxml import etree
 from mdal.interfaces.scoring import StructureCheckResult
 from mdal.plugins.registry import Plugin, PluginRegistry
 from mdal.verification.detector import DetectedOutput, OutputFormat, extract_code
+
+logger = logging.getLogger(__name__)
 
 
 class StructureChecker:
@@ -62,8 +65,23 @@ class StructureChecker:
     def _check_xml(self, output: str, detected: DetectedOutput) -> StructureCheckResult:
         # Look up plugin by namespace
         plugin: Plugin | None = None
-        if detected.xml_namespace:
-            plugin = self._registry.find_for_namespace(detected.xml_namespace)
+        namespace = detected.xml_namespace
+        
+        clean_xml = extract_code(output)
+        # Fallback: Extract namespace manually via lxml if detector missed it
+        if not namespace and clean_xml:
+            try:
+                root = etree.fromstring(clean_xml.encode("utf-8"))
+                namespace = root.nsmap.get(root.prefix) if root.prefix else root.nsmap.get(None)
+            except Exception:
+                pass
+
+        if namespace:
+            plugin = self._registry.find_for_namespace(namespace)
+            if plugin:
+                logger.info("Found XML plugin '%s' for namespace '%s'", plugin.plugin_id, namespace)
+            else:
+                logger.warning("No XML plugin found for namespace '%s'", namespace)
 
         # Stage 1: XSD validation
         if plugin and plugin.has_schema:

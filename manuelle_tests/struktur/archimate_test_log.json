@@ -1,0 +1,12 @@
+[
+  {
+    "test": "Ohne_XSD",
+    "status": "exception",
+    "error": "timed out"
+  },
+  {
+    "test": "Mit_XSD",
+    "status": "success",
+    "response": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<model identifier=\"id-1234\"\n       xmlns=\"http://www.opengroup.org/xsd/archimate/3.0/\"\n       xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n    <name>Test</name>\n    <elements>\n        <element identifier=\"act-1\" xsi:type=\"BusinessActor\">\n            <name>Customer</name>\n        </element>\n        <element identifier=\"proc-1\" xsi:type=\"BusinessProcess\">\n            <name>Customer Service</name>\n        </element>\n    </elements>\n    <relationships>\n        <relationship identifier=\"rel-1\"\n                      xsi:type=\"Association\"\n                      source=\"act-1\"\n                      target=\"proc-1\"/>\n    </relationships>\n</model>"
+  }
+]

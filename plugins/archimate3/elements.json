@@ -1,0 +1,5 @@
+{
+  "allowed_elements": [],
+  "required_elements": ["model"],
+  "forbidden_elements": []
+}

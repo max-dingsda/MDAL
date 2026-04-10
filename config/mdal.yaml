@@ -1,7 +1,7 @@
 llm:
   url: http://localhost:11434
-  model: mistral
-  timeout: 240
+  model: gpt-oss:20b
+  timeout: 900
 embedding:
   url: http://localhost:11434
   model: nomic-embed-text
@@ -13,8 +13,8 @@ audit:
   path: F:/workspace/MDAL/logs/mdal.log
 checks:
   semantic: true
-  structure: false
-max_retries: 2
+  structure: true
+max_retries: 3
 notifier:
   log_path: ./logs/escalations.log
 env_start_cmd: conda activate mdal
