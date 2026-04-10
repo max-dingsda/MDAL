@@ -188,6 +188,24 @@ def browse_folder_api():
         logger.error("Error opening folder dialog: %s", e)
         return {"folder": ""}
 
+@app.get("/api/browse-file")
+def browse_file_api():
+    """Opens a native Windows file dialog and returns the path."""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        
+        root = tk.Tk()
+        root.withdraw()
+        root.wm_attributes('-topmost', 1)
+        file_path = filedialog.askopenfilename(title="Datei auswählen", filetypes=[("JSON Dateien", "*.json"), ("Alle Dateien", "*.*")])
+        root.destroy()
+        
+        return {"file": file_path}
+    except Exception as e:
+        logger.error("Error opening file dialog: %s", e)
+        return {"file": ""}
+
 @app.post("/api/proxy/state")
 async def set_proxy_state(request: Request):
     """Toggles the maintenance mode of the proxy."""
@@ -224,9 +242,13 @@ async def set_proxy_state(request: Request):
         return {"status": "success", "is_active": False}
 
 @app.post("/api/trainer/start")
-def start_trainer_api():
+async def start_trainer_api(request: Request):
     """Spawns the trainer in a new, independent Windows terminal."""
     try:
+        data = await request.json()
+        input_path = data.get("input_path", "manuelle_tests/semantik/gpt4o_chats.json")
+        language = data.get("language", "de")
+
         yaml_path = Path("config/mdal.yaml")
         env_cmd = ""
         if yaml_path.exists():
@@ -239,15 +261,15 @@ def start_trainer_api():
             cmds.append(env_cmd)
             cmds.append("timeout /t 3 /nobreak")
         
-        # Standard Commercial-Test Trainer Befehl
-        cmds.append("python -m mdal.trainer.trainer --config config/trainer_commercial.yaml --input manuelle_tests/semantik/gpt4o_chats.json --language de")
+        # Dynamischer Trainer Befehl
+        cmds.append(f"python -m mdal.trainer.trainer --config config/mdal.yaml --input \"{input_path}\" --language {language}")
         
         # Befehle mit '&' für die Windows-Konsole verketten
         full_cmd = " & ".join(cmds)
         logger.info(f"Starte Trainer in neuem Fenster: {full_cmd}")
         
-        # creationflags=subprocess.CREATE_NEW_CONSOLE öffnet ein natives Windows CMD!
-        subprocess.Popen(full_cmd, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        # Aufruf als nativer String verhindert, dass Python interne Anführungszeichen als \" escaped
+        subprocess.Popen(f'cmd.exe /k "{full_cmd}"', creationflags=subprocess.CREATE_NEW_CONSOLE)
         return {"status": "success"}
     except Exception as e:
         logger.error("Fehler beim Starten des Trainers: %s", e)

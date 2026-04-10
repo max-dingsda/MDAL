@@ -253,6 +253,29 @@
             </div>
         </div>
 
+        <!-- SECTION: Trainer -->
+        <div class="card p-4 border-primary">
+            <h5 class="section-title text-primary">Trainer (Fingerprint Destillation)</h5>
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label class="form-label fw-bold mb-1">Input-Datei (Chat-Verläufe)</label>
+                    <div class="input-group">
+                        <input type="text" id="trainer_input_path" class="form-control" placeholder="./manuelle_tests/semantik/gpt4o_chats.json" value="manuelle_tests/semantik/gpt4o_chats.json">
+                        <button class="btn btn-outline-secondary" type="button" onclick="selectFile('trainer_input_path')">📄 Durchsuchen</button>
+                    </div>
+                    <div class="form-text text-muted small">JSON-Datei im OpenAI-Format mit historischen Konversationen.</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold mb-1">Zielsprache</label>
+                    <select id="trainer_language" class="form-select">
+                        <option value="de" selected>Deutsch (de)</option>
+                        <option value="en">Englisch (en)</option>
+                    </select>
+                    <div class="form-text text-muted small">Sprache für den zu erstellenden Fingerprint.</div>
+                </div>
+            </div>
+        </div>
+
         <!-- SAVE BUTTON -->
         <div class="text-end">
             <button type="button" class="btn btn-primary px-5 py-2" onclick="saveConfig()">Konfiguration Speichern</button>
@@ -363,6 +386,20 @@
                         path = path.replace(/\/$/, '') + suffix;
                     }
                     document.getElementById(inputId).value = path;
+                }
+            }
+        } catch (e) {
+            alert("Fehler: Das MDAL-Backend ist nicht erreichbar oder die Route fehlt noch.");
+        }
+    }
+
+    async function selectFile(inputId) {
+        try {
+            const response = await fetch('/api/browse-file');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.file) {
+                    document.getElementById(inputId).value = data.file.replace(/\\/g, '/');
                 }
             }
         } catch (e) {
@@ -511,11 +548,34 @@
     }
 
     async function startTrainer() {
+        const btn = document.querySelector('button[onclick="startTrainer()"]');
+        const oldText = btn.innerText;
+        btn.innerText = "Starte...";
+        btn.disabled = true;
+
+        const payload = {
+            input_path: document.getElementById('trainer_input_path').value || "manuelle_tests/semantik/gpt4o_chats.json",
+            language: document.getElementById('trainer_language').value || "de"
+        };
+
         try {
-            await fetch('/api/trainer/start', { method: 'POST' });
+            const res = await fetch('/api/trainer/start', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                alert("✅ Trainer wurde erfolgreich in einem neuen Fenster gestartet!");
+            } else {
+                const data = await res.json();
+                alert("❌ Fehler beim Starten des Trainers:\n" + (data.message || "Unbekannter Fehler"));
+            }
         } catch (e) {
             alert("Fehler beim Starten des Trainers.");
         }
+
+        btn.innerText = oldText;
+        btn.disabled = false;
     }
 
     // Initialize UI state on load

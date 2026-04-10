@@ -96,14 +96,23 @@ class Trainer:
             len(conversations), len(responses), language,
         )
 
+        print(f"\n🚀 Starte Fingerprint-Destillation für Sprache '{language}'...", flush=True)
+        print(f"📊 Analysiere {len(conversations)} Konversationen mit {len(responses)} Assistant-Antworten...\n", flush=True)
+
         logger.info("Trainer: Extracting style rules (Layer 1) …")
+        print("⏳ [1/3] Extrahiere Stil-Regeln via LLM (Layer 1)...", flush=True)
         layer1 = self._extract_style_rules(responses, language)
+        print("   ✅ Stil-Regeln erfolgreich extrahiert.\n", flush=True)
 
         logger.info("Trainer: Computing embedding profile (Layer 2) …")
+        print("⏳ [2/3] Berechne Embedding-Profile (Layer 2)...", flush=True)
         layer2 = self._compute_embedding_profile(responses)
+        print("   ✅ Embeddings berechnet und Centroid ermittelt.\n", flush=True)
 
         logger.info("Trainer: Selecting golden samples (Layer 3) …")
+        print("⏳ [3/3] Wähle repräsentative Golden Samples via LLM (Layer 3)...", flush=True)
         layer3 = self._select_golden_samples(conversations, language)
+        print(f"   ✅ {len(layer3.samples)} Golden Samples ausgewählt.\n", flush=True)
 
         fingerprint = Fingerprint(
             version=0,      # assigned by the store
@@ -460,7 +469,7 @@ def main() -> None:
         embedding_model_name=config.embedding.model,
     )
     version = trainer.run(conversations=conversations, language=args.language)
-    print(f"Fingerprint v{version} for language '{args.language}' saved.")
+    print(f"🎉 ERFOLG: Fingerprint v{version} für Sprache '{args.language}' wurde gespeichert!\n", flush=True)
 
 
 if __name__ == "__main__":

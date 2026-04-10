@@ -1,6 +1,6 @@
 llm:
   url: http://localhost:11434
-  model: gemma4:e4b
+  model: mistral
   timeout: 240
 embedding:
   url: http://localhost:11434
@@ -10,10 +10,11 @@ fingerprint_path: ./fingerprints/default
 plugin_registry_path: ./plugins
 audit:
   target: file
-  path: C:/Users/mgoum/Downloads/mdal.log
+  path: F:/workspace/MDAL/logs/mdal.log
 checks:
   semantic: true
   structure: false
-max_retries: 3
+max_retries: 2
 notifier:
   log_path: ./logs/escalations.log
+env_start_cmd: conda activate mdal
