@@ -48,6 +48,21 @@ Some advanced runtime options such as `fallback_llm`, `max_retries`, and `langua
 python -m mdal.trainer.trainer --config config/mdal.yaml --input your_chats.json --language de
 ```
 
+## Structure Validation & Plugins
+MDAL features a zero-code plugin system for strict schema validation of structured outputs like XML or JSON. 
+
+Simply drop your schemas into the configured `plugins/` directory. MDAL will automatically detect the output format (e.g., via XML namespaces) and validate the LLM's response before it reaches your application.
+
+**Example Structure (ArchiMate 3.1 XML Validation):**
+```text
+plugins/
+  archimate3/
+    manifest.json     # Registers the XML namespace
+    schema.xsd        # The master XSD schema for validation
+    elements.json     # (Optional) Whitelist/Blacklist for specific tags
+```
+If an LLM generates malformed code or violates the XSD schema, MDAL intercepts the response, feeds the exact parser error back to the LLM, and forces a self-correction (Refinement Loop) — entirely invisible to your client application.
+
 ---
 
 ## Further Documentation

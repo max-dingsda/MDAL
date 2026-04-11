@@ -280,6 +280,24 @@ class TestStructureCheckerXML:
         assert result.passed is False
         assert result.failed_at == "elements"
 
+    def test_fallback_extracts_namespace_when_detector_misses_it(self, tmp_path):
+        make_plugin_dir(
+            tmp_path, "fallback-plugin", ["elements.json"],
+            elements_content={"forbidden_elements": ["forbidden"]},
+            matches={"format": "xml", "namespace": "http://fallback.com/ns"},
+        )
+        reg = PluginRegistry()
+        reg.load_from(tmp_path)
+        checker = StructureChecker(reg)
+
+        # XML has namespace, but detected output does not
+        xml = '<root xmlns="http://fallback.com/ns"><forbidden/></root>'
+        from mdal.verification.detector import DetectedOutput, OutputFormat
+        detected = DetectedOutput(format=OutputFormat.XML, xml_namespace=None)
+
+        result = checker.check(xml, detected)
+        assert result.passed is False
+        assert result.failed_at == "elements"
 
 # ---------------------------------------------------------------------------
 # Structure check — JSON
