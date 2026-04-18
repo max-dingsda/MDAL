@@ -1,4 +1,5 @@
-# MDAL (Model-Driven Architecture Layer)
+# MDAL (Model-Drift Avoidance Layer)
+Correct would be, Model Shift Avaoidance Layer, the naming was a misunderstanding in ealry development
 
 ## What is it?
 MDAL is a specialized normalization layer (proxy) that acts as middleware between applications/users and Large Language Models (LLMs).
